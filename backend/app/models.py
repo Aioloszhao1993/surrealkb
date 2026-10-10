@@ -32,7 +32,7 @@ class User(Base):
     bio: Mapped[str | None] = mapped_column(String(200), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
+    # 移除用户后，级联删除其视频、点赞、收藏等
     videos: Mapped[list["Video"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
 
 
@@ -52,6 +52,7 @@ class Video(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
     owner: Mapped["User"] = relationship(back_populates="videos")
+    # 级联删除：视频被删后，相关的点赞、收藏也删掉
     likes: Mapped[list["Like"]] = relationship(back_populates="video", cascade="all, delete-orphan")
     favorites: Mapped[list["Favorite"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
@@ -72,6 +73,7 @@ class Like(Base):
 
 class Favorite(Base):
     __tablename__ = "favorites"
+    # 同一视频不能被同一个用户重复收藏（user_id + video_id 唯一约束）
     __table_args__ = (UniqueConstraint("user_id", "video_id", name="uq_fav_user_video"),)
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
@@ -82,6 +84,7 @@ class Favorite(Base):
     video: Mapped["Video"] = relationship(back_populates="favorites")
 
 
+# ---------- 索引：按创建时间倒序，方便分页查询最新视频 ----------
 Index("ix_videos_owner_created", Video.owner_id, Video.created_at.desc())
 
 
@@ -107,6 +110,7 @@ class VideoEmbedding(Base):
 # ---------- 关注关系（B 站式关注/粉丝）----------
 class Follow(Base):
     __tablename__ = "follows"
+    # 不能重复关注同一个人（follower_id + followee_id 唯一约束）
     __table_args__ = (UniqueConstraint("follower_id", "followee_id", name="uq_follow_pair"),)
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
