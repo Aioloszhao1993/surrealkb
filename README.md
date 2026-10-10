@@ -60,6 +60,14 @@ cd D:\video_fastqpi
 .\stop-mysql.ps1      # 停止
 ```
 
+> **一键启停脚本**（本机便捷脚本，不入库）：
+> - 全部启停：`start-all.bat` / `stop-all.bat`
+> - 只启停后端：`start-backend.bat` / `stop-backend.bat`
+> - 只启停前端：`start-frontend.bat` / `stop-frontend.bat`
+> - 进入数据库：`mysql-cli.bat`
+>
+> 这些 `.bat` / `.ps1` 均为**纯 ASCII、双击即用**；根目录下的脚本已全部在 `.gitignore` 中忽略（含本机绝对路径 / 本地口令，随机器不同，不适合提交）。
+
 已自动完成：
 - 解压至 `D:\video_fastqpi\mysql\mysql-8.0.28-winx64`
 - 数据目录 `D:\video_fastqpi\mysql_data`（已初始化）
@@ -271,7 +279,30 @@ AI_TOP_K=3
 
 ---
 
-## 九、自测
+## 九、关于版本控制（提交 GitHub 前必读）
+
+根目录 `.gitignore` 已配好，以下内容**不会**被提交：
+
+| 类别 | 例子 | 原因 |
+|---|---|---|
+| 密钥 / 环境变量 | `backend/.env`、`.env.*` | 含真实密钥（仅保留 `.env.example`） |
+| 本地 MySQL | `mysql/`、`mysql_data/` | 体积巨大（数百 MB） |
+| 依赖 / 构建 | `.venv/`、`node_modules/`、`frontend/dist/` | 可重建 |
+| 用户上传 | `backend/uploads/*` | 体积大 + 含隐私（保留 `.gitkeep`） |
+| 本机启停脚本 | 根目录 `*.bat` / `*.ps1` / `*.cmd` | 含本机绝对路径 / 本地口令 |
+| 临时 / 调试 | `backend/_*.py`、`*.log`、`*.err`、`*.zip`、`dbg_report*.txt` | 一次性产物 |
+| 编辑器 | `.vscode/`、`.idea/` | 个人配置 |
+
+追踪前自检：
+
+```powershell
+git status --short          # 看有没有该忽略的冒出来
+git check-ignore -v <文件>   # 查某个文件被哪条规则忽略
+```
+
+---
+
+## 十、自测
 
 ```powershell
 cd D:\video_fastqpi\backend

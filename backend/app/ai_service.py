@@ -73,13 +73,14 @@ def _fingerprint(video: Video) -> str:
 
 
 def _doc_text(video: Video) -> str:
+    """把视频的标题、作者、简介拼成一段文本，供向量化。"""
     owner = video.owner.username if video.owner else "未知"
     desc = (video.description or "").strip() or "（无简介）"
     return f"视频标题：{video.title}\n作者：{owner}\n简介：{desc}"
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """调用百炼把一批文本转成向量。"""
+    """调用百炼把一批文本转成向量。内部每 10 条一批（_EMBED_BATCH=10，text-embedding-v3 单次上限），逐批 POST /embeddings，并按返回的 index 排序拼接，保证顺序和输入一致"""
     out: list[list[float]] = []
     with _client() as c:
         for i in range(0, len(texts), _EMBED_BATCH):
@@ -98,34 +99,40 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 # ---------------------------------------------------------------- 索引维护
 def refresh_embeddings(db: Session, force: bool = False) -> dict:
     """为新增/修改过的视频补齐向量。返回统计信息。"""
+    # 前置检查，AI没配就直接退
     if not ai_ready():
         return {"skipped": True, "reason": "no api key"}
 
     # 串行化：同一时刻只允许一个索引刷新在跑，后到者等前者结束后再扫一遍。
     with _INDEX_LOCK:
+        # 全量拉取，建立已索引字典
         videos = list(db.scalars(select(Video)))
         existing = {e.video_id: e for e in db.scalars(select(VideoEmbedding))}
 
+        # 挑出需要处理的todo(增量判断)
         todo: list[Video] = []
         for v in videos:
             e = existing.get(v.id)
+            # 这条视频从没建过向量(新增视频)；调用方强制重建(接口reindex用)；标题或简介变过
             if e is None or force or e.source_hash != _fingerprint(v):
                 todo.append(v)
 
         if todo:
+            # 批量向量化
             vecs = embed_texts([_doc_text(v) for v in todo])
             for v, vec in zip(todo, vecs):
                 e = existing.get(v.id)
                 if e is None:
                     e = VideoEmbedding(video_id=v.id)
-                    db.add(e)
+                    db.add(e)  # 新增向量
                 e.model = settings.ai_embed_model
                 e.dim = len(vec)
-                e.source_hash = _fingerprint(v)
+                e.source_hash = _fingerprint(v)  # 记下这一版指纹
                 e.vector = _pack(vec)
             db.commit()
 
         total_embedded = db.scalar(select(func.count()).select_from(VideoEmbedding)) or 0
+        # 返回统计，indexed = 本次重建了几条；embedded = 库里现在共有几条向量。
         return {"indexed": len(todo), "total_videos": len(videos), "embedded": total_embedded}
 
 

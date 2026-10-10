@@ -1,44 +1,60 @@
-# ============ 环境变量（真实密钥，绝不提交） ============
+# ============================================================
+# SurrealVideo .gitignore
+# 只提交源码与文档；本机环境、依赖、构建产物、用户上传内容、
+# 密钥、本地 MySQL、日志与临时脚本一律忽略。
+# ============================================================
+
+# ---------- 密钥 / 环境变量 ----------
 .env
 .env.*
 !.env.example
 
-# ============ Python ============
+# ---------- Python ----------
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
 venv/
 env/
 
-# ============ 前端 ============
+# ---------- 前端依赖 / 构建产物 ----------
 node_modules/
 frontend/dist/
 .vite/
+.vite-dev-*.log
 
-# ============ 用户上传内容（含隐私，勿提交，仅保留空目录占位） ============
+# ---------- 用户上传内容（体积大 + 隐私，仅保留占位文件） ----------
 backend/uploads/*
 !backend/uploads/.gitkeep
 
-# ============ 本地 MySQL（免安装版，体积巨大，勿提交） ============
+# ---------- 本机绿色版 MySQL（体积巨大，勿提交） ----------
 mysql/
 mysql_data/
 _mysql_extract/
 
-# ============ 含明文口令的本地脚本（勿提交） ============
-mysql-cli.bat
-mysql-cli.ps1
-start-mysql.ps1
-stop-mysql.ps1
+# ---------- 本机启动脚本（含绝对路径 / 明文口令，随机器不同） ----------
+# 根目录下的所有 .bat / .ps1 / .cmd 均为本机启停便捷脚本，不入库：
+#   start-all / stop-all / start-mysql / stop-mysql / mysql-cli
+#   start-backend / stop-backend / start-frontend / stop-frontend / run-frontend
+/*.bat
+/*.ps1
+/*.cmd
 
-# ============ 日志 / 压缩包 / 备份 / 临时文件 ============
+# ---------- 本地临时 / 调试脚本 ----------
+backend/_*.py
+
+# ---------- 日志 / 压缩包 / 备份 / 临时文件 ----------
 *.log
-.vite-dev-*.log
+*.err
+*.out
 *.zip
 *.bak
 _tmp_*
 ~$*
+dbg_report*.txt
+reload_*_test.txt
 
-# ============ 编辑器 / 系统 ============
+# ---------- 编辑器 / 系统 ----------
 .idea/
 .vscode/
 .DS_Store
