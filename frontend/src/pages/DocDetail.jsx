@@ -219,12 +219,35 @@ export default function DocDetail() {
     }
   }
 
-  // 打开原始文件：经带 token 的请求取回 blob（PDF 可内嵌预览，Word/TXT 下载）
+  // 打开/下载原始文件：经带 token 的请求取回 blob
   const openRaw = async () => {
     try {
       const res = await api.get(`/documents/${id}/raw`, { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      window.open(url, '_blank')
+      const blob = res.data
+      // 原始文件名：以下载响应头为准，回退到文档记录里的 original_name
+      const cd = res.headers?.['content-disposition'] || ''
+      let name = doc.original_name || doc.filename || `${doc.title}.${doc.doc_type}`
+      const m = cd.match(/filename\*=UTF-8''([^;]+)/i)
+      if (m) {
+        try {
+          name = decodeURIComponent(m[1])
+        } catch {
+          /* 保留回退名 */
+        }
+      }
+      const url = URL.createObjectURL(blob)
+      if (doc.doc_type === 'pdf') {
+        // PDF 用浏览器原生阅读器内嵌预览（blob 无文件名无妨）
+        window.open(url, '_blank')
+      } else {
+        // 其余格式触发下载，并用 <a download> 显式指定原文件名（window.open 会丢掉文件名）
+        const a = document.createElement('a')
+        a.href = url
+        a.download = name
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch (e) {
       flash(errMsg(e))
@@ -330,7 +353,7 @@ export default function DocDetail() {
             版本历史
           </button>
           <button className="btn ghost" onClick={openRaw}>
-            查看原文件
+            {doc.doc_type === 'pdf' ? '预览原文件' : '下载原文件'}
           </button>
           {mine && (
             <>

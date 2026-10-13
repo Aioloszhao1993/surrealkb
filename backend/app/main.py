@@ -47,6 +47,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # 暴露下载文件名给前端（跨域时默认读不到 Content-Disposition）
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(auth.router)
