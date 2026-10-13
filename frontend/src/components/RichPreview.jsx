@@ -30,6 +30,8 @@ export default function RichPreview({ doc }) {
           const mammoth = (await import('mammoth')).default
           const result = await mammoth.convertToHtml({ arrayBuffer })
           if (!alive) return
+          // mammoth 会把表格单元格的下边框转成 <p><hr/></p>，渲染时去掉以免把表格拆散
+          const html = (result.value || '').replace(/<p>\s*<hr\s*\/?>\s*<\/p>/gi, '')
           // 只保留真正影响内容的告警；忽略 mammoth 对未知样式/字体/元素的常见提示
           // （如 "Unrecognised paragraph style: 'List Paragraph'"、"unrecognised element w:tblPrEx"）
           const important = (result.messages || []).filter(
@@ -38,7 +40,7 @@ export default function RichPreview({ doc }) {
           const note = important.length
             ? important.slice(0, 3).map((m) => m.message).join('；')
             : null
-          setState({ loading: false, kind: 'html', html: result.value || '', note })
+          setState({ loading: false, kind: 'html', html, note })
         } else if (type === 'md' || type === 'markdown') {
           const text = await blob.text()
           if (!alive) return

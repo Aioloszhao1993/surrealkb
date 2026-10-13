@@ -116,18 +116,18 @@ export default function DocDetail() {
         const { value: html } = await mammoth.convertToHtml({
           arrayBuffer: await res.data.arrayBuffer(),
         })
-        const [TurndownMod, GfmMod] = await Promise.all([
-          import('turndown'),
-          import('turndown-plugin-gfm'),
-        ])
+        // 去掉 mammoth 由表格单元格「下边框」生成的水平分割线段落（会把表格拆散）
+        const cleaned = html.replace(/<p>\s*<hr\s*\/?>\s*<\/p>/gi, '')
+        const TurndownMod = await import('turndown')
         const td = new TurndownMod.default({
           headingStyle: 'atx',
           codeBlockStyle: 'fenced',
           bulletListMarker: '-',
         })
-        td.use(GfmMod.gfm)
-        td.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td'])
-        const converted = td.turndown(html)
+        // 表格原样保留为 HTML（保真优先）
+        td.keep(['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption'])
+        td.addRule('dropImage', { filter: 'img', replacement: () => '' })
+        const converted = td.turndown(cleaned)
         if (converted.trim()) md = converted
       } catch {
         /* 转换失败则退回纯文本 */
@@ -392,7 +392,7 @@ export default function DocDetail() {
             placeholder="直接在这里编辑，支持标题 / 列表 / 表格 / 加粗…"
           />
           <div className="editor-foot">
-            共 {num(draft.length)} 字 · 富文本所见即所得，可切到 Markdown 源码模式
+            共 {num(draft.length)} 字 · 富文本所见即所得，尽量还原原文件的标题 / 列表 / 表格样式
           </div>
         </div>
       ) : (

@@ -270,7 +270,8 @@ def get_document_raw(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "原始文件已丢失")
     ext = Path(doc.filename).suffix.lower()
     mime = DOC_MIME.get(ext, "application/octet-stream")
-    name = (doc.original_name or path.name).replace('"', "")
+    # 「查看原文件」：始终用上传时的原始文件名，不带任何版本号
+    name = (doc.original_name or f"{doc.title}{ext}").replace('"', "")
     # 中文文件名用 RFC 5987 编码，避免头部非法字符
     disp = "inline" if inline else "attachment"
     quoted = quote(name)
