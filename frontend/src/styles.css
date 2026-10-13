@@ -710,3 +710,65 @@ button { font-family: inherit; cursor: pointer; }
 }
 .account-tenant-label { font-size: 12px; color: #aab0d0; }
 .account-tenant-name { color: #e6dcff; font-weight: 600; font-size: 13px; }
+
+/* 版本号徽标 */
+.doc-ver {
+  font-size: 12px; font-weight: 700; color: #9b59ff;
+  background: rgba(155,89,255,.16); border: 1px solid rgba(155,89,255,.4);
+  border-radius: 8px; padding: 2px 8px; vertical-align: middle;
+}
+
+/* 在线编辑正文 */
+.doc-editor {
+  margin-top: 8px; background: rgba(16,18,38,.6);
+  border: 1px solid rgba(155,89,255,.25); border-radius: 16px; padding: 16px 18px;
+}
+.editor-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+.editor-bar strong { color: #e6dcff; font-size: 16px; }
+.editor-hint { font-size: 12px; color: #aab0d0; flex: 1; min-width: 200px; line-height: 1.5; }
+.editor-actions { display: flex; gap: 8px; margin-left: auto; }
+.editor-area {
+  width: 100%; min-height: 420px; resize: vertical;
+  background: rgba(8,10,22,.7); color: #e8ecff;
+  border: 1px solid rgba(155,89,255,.3); border-radius: 12px;
+  padding: 16px 18px; font-size: 14px; line-height: 1.85;
+  font-family: "SFMono-Regular", Consolas, "Microsoft YaHei", monospace;
+  white-space: pre-wrap; outline: none;
+}
+.editor-area:focus { border-color: rgba(155,89,255,.7); box-shadow: 0 0 0 3px rgba(155,89,255,.16); }
+.editor-foot { margin-top: 8px; font-size: 12px; color: #8f95b8; }
+
+/* 通用模态框 */
+.modal-mask {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(4,6,16,.68); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-card {
+  width: 100%; max-width: 420px; background: rgba(18,20,40,.98);
+  border: 1px solid rgba(155,89,255,.35); border-radius: 18px;
+  padding: 22px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  animation: modalIn .18s ease;
+}
+.modal-card.wide { max-width: 640px; max-height: 80vh; overflow: auto; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+.modal-card h3 { margin: 0 0 10px; color: #e6dcff; font-size: 18px; }
+.modal-text { color: #b8bede; font-size: 13px; line-height: 1.7; margin: 0 0 16px; }
+.modal-text strong { color: #ffd76a; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+/* 版本列表 */
+.rev-list { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.rev-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: 12px;
+  background: rgba(155,89,255,.08); border: 1px solid rgba(155,89,255,.2);
+}
+.rev-meta { font-size: 12px; color: #aab0d0; }
+.rev-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.rev-content {
+  max-height: 46vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-size: 13px; line-height: 1.8; color: #dfe4ff;
+  background: rgba(8,10,22,.7); border: 1px solid rgba(155,89,255,.2);
+  border-radius: 12px; padding: 14px 16px; margin: 0;
+}

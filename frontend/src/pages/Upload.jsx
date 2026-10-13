@@ -24,6 +24,7 @@ export default function Upload() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [conflict, setConflict] = useState(null) // 同名冲突信息
   const fileRef = useRef(null)
   const dragDepth = useRef(0)
 
@@ -62,13 +63,11 @@ export default function Upload() {
     }
   }
 
-  const submit = async (e) => {
-    e.preventDefault()
+  const doUpload = async (overwrite) => {
     setError('')
-    if (!file) return setError('请选择要上传的文档')
-
     const fd = new FormData()
     if (title.trim()) fd.append('title', title.trim())
+    if (overwrite) fd.append('overwrite', 'true')
     fd.append('file', file)
 
     setBusy(true)
@@ -80,10 +79,22 @@ export default function Upload() {
       })
       nav(`/doc/${data.id}`)
     } catch (err) {
-      setError(errMsg(err))
+      // 同名冲突：后端返回 409，弹确认框
+      const detail = err?.response?.data?.detail
+      if (err?.response?.status === 409 && detail?.document_id) {
+        setConflict(detail)
+      } else {
+        setError(errMsg(err))
+      }
     } finally {
       setBusy(false)
     }
+  }
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!file) return setError('请选择要上传的文档')
+    doUpload(false)
   }
 
   return (
@@ -168,6 +179,37 @@ export default function Upload() {
           {busy ? '处理中…' : '上传并入库'}
         </button>
       </form>
+
+      {conflict && (
+        <div className="modal-mask" onClick={() => setConflict(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>发现同名文档</h3>
+            <p className="modal-text">
+              知识库中已存在《{conflict.title}》。
+              <br />
+              <strong>覆盖</strong>会删除旧文档（含其历史版本），保留你这次上传的新内容；
+              <br />
+              <strong>取消</strong>的话，可修改标题后再传，两份并存。
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn danger"
+                disabled={busy}
+                onClick={() => {
+                  const c = conflict
+                  setConflict(null)
+                  if (c) doUpload(true)
+                }}
+              >
+                覆盖旧文档
+              </button>
+              <button className="btn ghost" onClick={() => setConflict(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

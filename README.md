@@ -204,12 +204,16 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/documents` | 上传文档（multipart，≤50MB，自动解析 + 分块） |
+| POST | `/api/documents` | 上传文档（multipart，≤50MB，自动解析 + 分块）。同名默认报 409；带 `overwrite=true` 则覆盖旧文档 |
 | GET | `/api/documents` | 列表（`q`/`status`/`owner_id`/`page`/`page_size`） |
-| GET | `/api/documents/{id}` | 详情 |
+| GET | `/api/documents/{id}` | 详情（含 `revision` 版本号） |
 | GET | `/api/documents/{id}/content` | 提取出的纯文本全文（「原文」阅读视图） |
 | GET | `/api/documents/{id}/raw` | 下载/预览原始上传文件（PDF 可内嵌） |
 | GET | `/api/documents/{id}/chunks` | 该文档全部分块（AI 检索单元） |
+| PUT | `/api/documents/{id}` | 在线编辑正文（存历史快照 → 重建分块与向量） |
+| GET | `/api/documents/{id}/revisions` | 历史版本列表 |
+| GET | `/api/documents/{id}/revisions/{rev_id}` | 查看某历史版本全文 |
+| POST | `/api/documents/{id}/revisions/{rev_id}/restore` | 回滚到某历史版本 |
 | PATCH | `/api/documents/{id}` | 改标题 |
 | DELETE | `/api/documents/{id}` | 删除（上传者或管理员） |
 | POST | `/api/documents/{id}/reindex` | 重新解析并重建向量索引 |

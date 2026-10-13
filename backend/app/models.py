@@ -95,6 +95,9 @@ class Document(Base):
     content: Mapped[str | None] = mapped_column(
         Text().with_variant(LONGTEXT, "mysql"), nullable=True, deferred=True
     )
+    # 编辑版本号（首次上传=1，每次正文编辑 +1）
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -102,6 +105,9 @@ class Document(Base):
 
     tenant: Mapped["Tenant"] = relationship(back_populates="documents")
     chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+    revisions: Mapped[list["DocumentRevision"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
 
@@ -125,6 +131,29 @@ class Chunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     document: Mapped["Document"] = relationship(back_populates="chunks")
+
+
+# ---------------------------------------------------------------- 文档历史版本（编辑前快照）
+class DocumentRevision(Base):
+    """正文被编辑时，保存编辑前的旧内容（可回滚）。"""
+
+    __tablename__ = "document_revisions"
+
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    revision_no: Mapped[int] = mapped_column(Integer, default=1)   # 这是第几版
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str | None] = mapped_column(
+        Text().with_variant(LONGTEXT, "mysql"), nullable=True, deferred=True
+    )
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+    document: Mapped["Document"] = relationship(back_populates="revisions")
 
 
 # ---------------------------------------------------------------- 关注（保留）

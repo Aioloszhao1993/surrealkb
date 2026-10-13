@@ -21,6 +21,8 @@ ADD_COLUMNS = {
     ],
     "documents": [
         ("content", "LONGTEXT NULL"),
+        ("revision", "INT NOT NULL DEFAULT 1"),
+        ("edited_at", "DATETIME NULL"),
     ],
 }
 

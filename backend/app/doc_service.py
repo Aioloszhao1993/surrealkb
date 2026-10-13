@@ -234,6 +234,17 @@ def build_chunks(db: Session, document: Document, text: str, reflow: bool = True
     return len(pieces)
 
 
+def reindex_text(db: Session, document: Document, text: str, reflow: bool = False) -> int:
+    """用指定正文重建该文档的分块（在线编辑 / 覆盖上传复用）。
+
+    与 process_document 的区别：不再从文件提取，直接用传入文本。
+    """
+    normalized = normalize(text)
+    if not normalized:
+        raise ValueError("正文不能为空")
+    return build_chunks(db, document, normalized, reflow)
+
+
 def process_document(db: Session, document: Document, path: Path) -> None:
     """完整处理：提取 → 分块。异常时把文档标记 failed。"""
     try:

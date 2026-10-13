@@ -188,6 +188,49 @@ def main() -> int:
     r = client.post("/api/tenants/join", headers=auth(tok4), json={"invite_code": new_code})
     check(r.status_code == 200, f"新码可用 ({r.status_code})")
 
+    print("\n=== 9c. 同名查重 / 在线编辑 / 版本历史 ===")
+    # 同名再传（不覆盖）应 409
+    r = client.post(
+        "/api/documents",
+        headers=auth(tok),
+        data={"title": "差旅报销制度"},
+        files={"file": ("dup.txt", io.BytesIO(b"x"), "text/plain")},
+    )
+    check(r.status_code == 409, f"同名上传 409 ({r.status_code})")
+    check(r.json().get("detail", {}).get("conflict") is True, "返回冲突标记")
+    # 在线编辑正文（改成住宿 500）
+    r = client.put(
+        f"/api/documents/{doc_id}",
+        headers=auth(tok),
+        json={"content": "差旅报销制度\n第一条 住宿费：一线城市每晚不超过 500 元。\n"},
+    )
+    check(r.status_code == 200, f"在线编辑 200 ({r.status_code}) {r.text[:120]}")
+    ed = r.json()
+    check(ed["revision"] == 2, f"版本号 +1 ({ed['revision']})")
+    # 等后台补向量后检索，应命中新内容（500）而非旧内容（600）
+    client.post("/api/ai/reindex", headers=auth(tok))
+    r = client.post(
+        "/api/ai/chat",
+        headers=auth(tok),
+        json={"question": "一线城市住宿费一晚最多报销多少？", "session_key": f"s3_{sfx}"},
+    )
+    if r.status_code == 200:
+        ans = r.json()["answer"]
+        print(f"    A: {ans[:120]}")
+        check("500" in ans, "编辑后检索命中新内容 500")
+    # 版本历史：应有 1 个历史版本（编辑前的 600 版）
+    r = client.get(f"/api/documents/{doc_id}/revisions", headers=auth(tok))
+    check(r.status_code == 200 and len(r.json()) >= 1, f"历史版本 {len(r.json()) if r.status_code==200 else '-'} 个")
+    rev_id = r.json()[0]["id"]
+    # 查看历史版本全文 -> 应为旧内容（600）
+    r = client.get(f"/api/documents/{doc_id}/revisions/{rev_id}", headers=auth(tok))
+    check(r.status_code == 200 and "600" in r.json()["content"], "历史版本仍可查看旧内容")
+    # 回滚到历史版本 -> 内容回到 600
+    r = client.post(f"/api/documents/{doc_id}/revisions/{rev_id}/restore", headers=auth(tok))
+    check(r.status_code == 200, f"回滚 200 ({r.status_code})")
+    r = client.get(f"/api/documents/{doc_id}/content", headers=auth(tok))
+    check("600" in r.json()["content"], "回滚后正文为旧内容 600")
+
     print("\n=== 10. 删除文档 ===")
     r = client.delete(f"/api/documents/{doc_id}", headers=auth(tok))
     check(r.status_code == 204, f"删除 204 ({r.status_code})")

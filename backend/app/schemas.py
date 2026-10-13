@@ -115,6 +115,8 @@ class DocumentOut(BaseModel):
     error: str | None = None
     chunk_count: int = 0
     char_count: int = 0
+    revision: int = 1
+    edited_at: datetime | None = None
     tenant_id: int | None = None
     owner_id: int | None = None
     created_at: datetime
@@ -146,6 +148,31 @@ class DocumentContent(BaseModel):
     title: str
     content: str
     char_count: int = 0
+    revision: int = 1
+
+
+class DocumentEdit(BaseModel):
+    """在线编辑正文（可选同时改标题）。"""
+    content: str = Field(max_length=2_000_000)
+    title: str | None = Field(default=None, max_length=200)
+
+
+class DocumentRevisionOut(BaseModel):
+    """历史版本摘要（不含全文）。"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    revision_no: int
+    title: str
+    char_count: int = 0
+    created_at: datetime
+
+
+class DocumentConflict(BaseModel):
+    """同名文档冲突：提示前端是否覆盖。"""
+    conflict: bool = True
+    document_id: int
+    title: str
+    message: str
 
 
 # ---------- AI 问答 ----------

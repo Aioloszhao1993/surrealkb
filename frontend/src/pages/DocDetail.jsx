@@ -34,6 +34,15 @@ export default function DocDetail() {
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState('')
 
+  // 在线编辑
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // 版本历史
+  const [revisions, setRevisions] = useState(null)
+  const [viewRev, setViewRev] = useState(null) // { revision, title, content }
+
   const flash = (m) => {
     setToast(m)
     setTimeout(() => setToast(''), 1800)
@@ -84,6 +93,67 @@ export default function DocDetail() {
       flash('标题已更新')
     } catch (e) {
       flash(errMsg(e))
+    }
+  }
+
+  const startEdit = () => {
+    setDraft(content || '')
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    if (!draft.trim()) return flash('正文不能为空')
+    setSaving(true)
+    try {
+      const { data } = await api.put(`/documents/${id}`, { content: draft })
+      setDoc(data)
+      setContent(draft)
+      setTab('content')
+      setEditing(false)
+      flash(`已保存，v${data.revision} · 正在重建索引`)
+      const c = await api.get(`/documents/${id}/chunks`)
+      setChunks(c.data)
+    } catch (e) {
+      flash(errMsg(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openRevisions = async () => {
+    try {
+      const { data } = await api.get(`/documents/${id}/revisions`)
+      setRevisions(data)
+    } catch (e) {
+      flash(errMsg(e))
+    }
+  }
+
+  const viewRevision = async (revId) => {
+    try {
+      const { data } = await api.get(`/documents/${id}/revisions/${revId}`)
+      setViewRev({ ...data, rev_id: revId })
+    } catch (e) {
+      flash(errMsg(e))
+    }
+  }
+
+  const restoreRevision = async (revId) => {
+    if (!confirm('回滚到该版本？当前内容会先存为一个新版本，可再切回。')) return
+    setSaving(true)
+    try {
+      const { data } = await api.post(`/documents/${id}/revisions/${revId}/restore`)
+      setDoc(data)
+      setViewRev(null)
+      setRevisions(null)
+      setContent(null)
+      await load()
+      await loadContent()
+      flash(`已回滚到 v${data.revision}`)
+    } catch (e) {
+      flash(errMsg(e))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -160,6 +230,7 @@ export default function DocDetail() {
             ) : (
               <h1 className="doc-title">
                 {doc.title}
+                <span className="doc-ver">v{doc.revision || 1}</span>
                 {mine && (
                   <button className="link edit-title" onClick={() => setRenaming(true)}>
                     改名
@@ -173,7 +244,7 @@ export default function DocDetail() {
               <span>· {sizeFmt(doc.size)}</span>
               <span>· {num(doc.char_count)} 字</span>
               <span>· {chunks.length} 段</span>
-              <span>· {timeAgo(doc.created_at)}</span>
+              <span>· {timeAgo(doc.edited_at || doc.created_at)}</span>
             </div>
             {doc.error && <div className="alert">{doc.error}</div>}
           </div>
@@ -182,6 +253,14 @@ export default function DocDetail() {
         <div className="doc-head-actions">
           <button className="btn action ai-ask-btn" onClick={ask} disabled={doc.status !== 'ready'}>
             ✦ 问问 AI
+          </button>
+          {mine && !editing && (
+            <button className="btn primary" onClick={startEdit} disabled={doc.status !== 'ready'}>
+              编辑正文
+            </button>
+          )}
+          <button className="btn ghost" onClick={openRevisions}>
+            版本历史
           </button>
           <button className="btn ghost" onClick={openRaw}>
             查看原文件
@@ -210,44 +289,133 @@ export default function DocDetail() {
         </div>
       )}
 
-      <div className="doc-tabs">
-        <button
-          className={`tab-btn${tab === 'content' ? ' active' : ''}`}
-          onClick={() => setTab('content')}
-        >
-          原文
-        </button>
-        <button
-          className={`tab-btn${tab === 'chunks' ? ' active' : ''}`}
-          onClick={() => setTab('chunks')}
-        >
-          分块（{chunks.length}）
-          <span className="tab-hint" title="分块是喂给 AI 检索的片段，普通阅读请用「原文」">
-            ?
-          </span>
-        </button>
-      </div>
-
-      {tab === 'content' ? (
-        doc.status !== 'ready' ? (
-          <div className="empty">文档尚未就绪，暂无正文。</div>
-        ) : content === null ? (
-          <div className="page-loading">正在加载原文…</div>
-        ) : content ? (
-          <article className="doc-content">{content}</article>
-        ) : (
-          <div className="empty">未能提取到正文内容。</div>
-        )
-      ) : chunks.length === 0 ? (
-        <div className="empty">这篇文档还没有分块内容。</div>
-      ) : (
-        <div className="chunk-list">
-          {chunks.map((c) => (
-            <div key={c.id} className="chunk-item">
-              <span className="chunk-seq">#{c.seq + 1}</span>
-              <p className="chunk-text">{c.content}</p>
+      {editing ? (
+        <div className="doc-editor">
+          <div className="editor-bar">
+            <strong>编辑正文</strong>
+            <span className="editor-hint">
+              保存后会重新分块并重建向量，AI 立即用新内容作答。原始文件（{doc.original_name || doc.doc_type}）不受影响。
+            </span>
+            <div className="editor-actions">
+              <button className="btn primary" onClick={saveEdit} disabled={saving}>
+                {saving ? '保存中…' : '保存'}
+              </button>
+              <button className="btn ghost" onClick={() => setEditing(false)} disabled={saving}>
+                取消
+              </button>
             </div>
-          ))}
+          </div>
+          <textarea
+            className="editor-area"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            spellCheck={false}
+          />
+          <div className="editor-foot">
+            共 {num(draft.length)} 字 · 可用空行分段，AI 会按段落切分
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="doc-tabs">
+            <button
+              className={`tab-btn${tab === 'content' ? ' active' : ''}`}
+              onClick={() => setTab('content')}
+            >
+              原文
+            </button>
+            <button
+              className={`tab-btn${tab === 'chunks' ? ' active' : ''}`}
+              onClick={() => setTab('chunks')}
+            >
+              分块（{chunks.length}）
+              <span className="tab-hint" title="分块是喂给 AI 检索的片段，普通阅读请用「原文」">
+                ?
+              </span>
+            </button>
+          </div>
+
+          {tab === 'content' ? (
+            doc.status !== 'ready' ? (
+              <div className="empty">文档尚未就绪，暂无正文。</div>
+            ) : content === null ? (
+              <div className="page-loading">正在加载原文…</div>
+            ) : content ? (
+              <article className="doc-content">{content}</article>
+            ) : (
+              <div className="empty">未能提取到正文内容。</div>
+            )
+          ) : chunks.length === 0 ? (
+            <div className="empty">这篇文档还没有分块内容。</div>
+          ) : (
+            <div className="chunk-list">
+              {chunks.map((c) => (
+                <div key={c.id} className="chunk-item">
+                  <span className="chunk-seq">#{c.seq + 1}</span>
+                  <p className="chunk-text">{c.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {revisions !== null && (
+        <div className="modal-mask" onClick={() => setRevisions(null)}>
+          <div className="modal-card wide" onClick={(e) => e.stopPropagation()}>
+            <h3>版本历史</h3>
+            <p className="modal-text">当前为 <strong>v{doc.revision || 1}</strong>。每条记录是编辑前的快照，可查看原文或回滚。</p>
+            {revisions.length === 0 ? (
+              <div className="empty">还没有历史版本（首次编辑后才会产生）。</div>
+            ) : (
+              <ul className="rev-list">
+                {revisions.map((r) => (
+                  <li key={r.id} className="rev-item">
+                    <div>
+                      <strong>v{r.revision_no}</strong>
+                      <span className="rev-meta">
+                        · {r.title} · {num(r.char_count)} 字 · {timeAgo(r.created_at)}
+                      </span>
+                    </div>
+                    <div className="rev-actions">
+                      <button className="btn ghost" onClick={() => viewRevision(r.id)}>
+                        查看
+                      </button>
+                      {mine && (
+                        <button className="btn primary" onClick={() => restoreRevision(r.id)}>
+                          回滚
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setRevisions(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewRev && (
+        <div className="modal-mask" onClick={() => setViewRev(null)}>
+          <div className="modal-card wide" onClick={(e) => e.stopPropagation()}>
+            <h3>v{viewRev.revision} · {viewRev.title}</h3>
+            <pre className="rev-content">{viewRev.content}</pre>
+            <div className="modal-actions">
+              {mine && viewRev.rev_id && (
+                <button className="btn primary" onClick={() => restoreRevision(viewRev.rev_id)}>
+                  回滚到此版本
+                </button>
+              )}
+              <button className="btn ghost" onClick={() => setViewRev(null)}>
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
