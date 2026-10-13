@@ -30,8 +30,13 @@ export default function RichPreview({ doc }) {
           const mammoth = (await import('mammoth')).default
           const result = await mammoth.convertToHtml({ arrayBuffer })
           if (!alive) return
-          const note = result.messages?.length
-            ? result.messages.map((m) => m.message).slice(0, 3).join('；')
+          // 只保留真正影响内容的告警；忽略 mammoth 对未知样式/字体/元素的常见提示
+          // （如 "Unrecognised paragraph style: 'List Paragraph'"、"unrecognised element w:tblPrEx"）
+          const important = (result.messages || []).filter(
+            (m) => !/unrecogni[sz]e|was ignored/i.test(m.message || '')
+          )
+          const note = important.length
+            ? important.slice(0, 3).map((m) => m.message).join('；')
             : null
           setState({ loading: false, kind: 'html', html: result.value || '', note })
         } else if (type === 'md' || type === 'markdown') {
@@ -67,10 +72,10 @@ export default function RichPreview({ doc }) {
       {state.kind === 'html' && (
         <div className="rich-doc" dangerouslySetInnerHTML={{ __html: state.html }} />
       )}
+      {state.kind === 'text' && <pre className="rich-text">{state.text}</pre>}
       {state.kind === 'pdf' && (
         <iframe className="rich-pdf" title="PDF 预览" src={state.url} />
       )}
-      {state.kind === 'text' && <pre className="rich-text">{state.text}</pre>}
     </div>
   )
 }

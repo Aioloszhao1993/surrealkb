@@ -66,10 +66,13 @@ export default function DocDetail() {
   const loadContent = useCallback(async () => {
     try {
       const { data } = await api.get(`/documents/${id}/content`)
-      setContent(data.content || '')
+      const text = data.content || ''
+      setContent(text)
+      return text
     } catch (e) {
       setContent('')
       flash(errMsg(e))
+      return ''
     }
   }, [id])
 
@@ -100,11 +103,14 @@ export default function DocDetail() {
   }
 
   const startEdit = async () => {
-    let md = content ?? ''
+    // 无论哪种格式，先把当前正文加载进来（此前只在 docx 分支里加载，非 Word 文档会打开空编辑器）
+    let md = content
+    if (md === null) md = await loadContent()
+    if (!md) md = ''
+
     // 首次编辑 Word：把原始文档还原为 Markdown（标题/列表/表格），让编辑器就是「原文的样子」
     if (doc.doc_type === 'docx' && (doc.revision || 1) === 1) {
       try {
-        if (content === null) await loadContent()
         const res = await api.get(`/documents/${id}/raw`, { responseType: 'blob' })
         const mammoth = (await import('mammoth')).default
         const { value: html } = await mammoth.convertToHtml({
@@ -127,6 +133,7 @@ export default function DocDetail() {
         /* 转换失败则退回纯文本 */
       }
     }
+    if (!md.trim()) flash('未提取到正文，可直接在这里输入')
     setDraft(md)
     setEditing(true)
   }

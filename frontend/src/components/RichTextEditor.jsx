@@ -19,7 +19,8 @@ marked.setOptions({ gfm: true, breaks: false })
 
 function mdToHtml(md) {
   try {
-    return marked.parse(md || '')
+    const html = marked.parse(md || '')
+    return typeof html === 'string' ? html : ''
   } catch {
     return ''
   }
