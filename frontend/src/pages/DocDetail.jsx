@@ -5,6 +5,7 @@ import { num, timeAgo } from '../components/format'
 import Avatar from '../components/Avatar'
 import HoverUser from '../components/UserHoverCard'
 import RichPreview from '../components/RichPreview'
+import RichTextEditor from '../components/RichTextEditor'
 import { useAuth } from '../store'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
@@ -43,7 +44,7 @@ export default function DocDetail() {
   // 版本历史
   const [revisions, setRevisions] = useState(null)
   const [viewRev, setViewRev] = useState(null) // { revision, title, content }
-  const [showOriginal, setShowOriginal] = useState(false) // 编辑时对照原文样式
+  const [showDl, setShowDl] = useState(false) // 「下载当前版本」格式菜单
 
   const flash = (m) => {
     setToast(m)
@@ -98,8 +99,35 @@ export default function DocDetail() {
     }
   }
 
-  const startEdit = () => {
-    setDraft(content || '')
+  const startEdit = async () => {
+    let md = content ?? ''
+    // 首次编辑 Word：把原始文档还原为 Markdown（标题/列表/表格），让编辑器就是「原文的样子」
+    if (doc.doc_type === 'docx' && (doc.revision || 1) === 1) {
+      try {
+        if (content === null) await loadContent()
+        const res = await api.get(`/documents/${id}/raw`, { responseType: 'blob' })
+        const mammoth = (await import('mammoth')).default
+        const { value: html } = await mammoth.convertToHtml({
+          arrayBuffer: await res.data.arrayBuffer(),
+        })
+        const [TurndownMod, GfmMod] = await Promise.all([
+          import('turndown'),
+          import('turndown-plugin-gfm'),
+        ])
+        const td = new TurndownMod.default({
+          headingStyle: 'atx',
+          codeBlockStyle: 'fenced',
+          bulletListMarker: '-',
+        })
+        td.use(GfmMod.gfm)
+        td.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td'])
+        const converted = td.turndown(html)
+        if (converted.trim()) md = converted
+      } catch {
+        /* 转换失败则退回纯文本 */
+      }
+    }
+    setDraft(md)
     setEditing(true)
   }
 
@@ -196,6 +224,36 @@ export default function DocDetail() {
     }
   }
 
+  // 下载当前版本：按指定格式导出，文件名 = 原文件名(V版本号).ext
+  const downloadVersion = async (fmt = 'md') => {
+    try {
+      const res = await api.get(`/documents/${id}/export`, {
+        params: { format: fmt },
+        responseType: 'blob',
+      })
+      const cd = res.headers?.['content-disposition'] || ''
+      let name = `${doc.title}(V${doc.revision || 1}).${fmt}`
+      const m = cd.match(/filename\*=UTF-8''([^;]+)/i)
+      if (m) {
+        try {
+          name = decodeURIComponent(m[1])
+        } catch {
+          /* 保留默认名 */
+        }
+      }
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (e) {
+      flash(errMsg(e))
+    }
+  }
+
   const ask = () => {
     window.dispatchEvent(
       new CustomEvent('ai-ask', { detail: `请根据文档《${doc.title}》总结它的主要内容。` })
@@ -272,6 +330,19 @@ export default function DocDetail() {
               <button className="btn ghost" onClick={reindex} disabled={busy}>
                 {busy ? '重建中…' : '重建索引'}
               </button>
+              <div className="dl-wrap">
+                <button className="btn ghost" onClick={() => setShowDl((v) => !v)}>
+                  下载当前版本 ▾
+                </button>
+                {showDl && (
+                  <div className="dl-menu" onMouseLeave={() => setShowDl(false)}>
+                    <button onClick={() => { setShowDl(false); downloadVersion('docx') }}>Word 文档 (.docx)</button>
+                    <button onClick={() => { setShowDl(false); downloadVersion('pdf') }}>PDF 文档 (.pdf)</button>
+                    <button onClick={() => { setShowDl(false); downloadVersion('md') }}>Markdown (.md)</button>
+                    <button onClick={() => { setShowDl(false); downloadVersion('txt') }}>纯文本 (.txt)</button>
+                  </div>
+                )}
+              </div>
               <button className="btn danger" onClick={remove}>
                 删除
               </button>
@@ -308,26 +379,13 @@ export default function DocDetail() {
             </div>
           </div>
 
-          <button
-            className="link original-toggle"
-            onClick={() => setShowOriginal((v) => !v)}
-          >
-            {showOriginal ? '▾ 收起原文样式' : '▸ 先看原文样式（对照编辑）'}
-          </button>
-          {showOriginal && (
-            <div className="editor-original">
-              <RichPreview doc={doc} />
-            </div>
-          )}
-
-          <textarea
-            className="editor-area"
+          <RichTextEditor
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            spellCheck={false}
+            onChange={setDraft}
+            placeholder="直接在这里编辑，支持标题 / 列表 / 表格 / 加粗…"
           />
           <div className="editor-foot">
-            共 {num(draft.length)} 字 · 可用空行分段，AI 会按段落切分
+            共 {num(draft.length)} 字 · 富文本所见即所得，可切到 Markdown 源码模式
           </div>
         </div>
       ) : (

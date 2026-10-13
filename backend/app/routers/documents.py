@@ -14,11 +14,11 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import ai_service, doc_service
+from .. import ai_service, doc_service, format_service
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
@@ -276,6 +276,33 @@ def get_document_raw(
     quoted = quote(name)
     headers = {"Content-Disposition": f"{disp}; filename*=UTF-8''{quoted}"}
     return FileResponse(path, media_type=mime, headers=headers)
+
+
+@router.get("/{doc_id}/export")
+def export_document(
+    doc_id: int,
+    fmt: str = Query("md", alias="format", description="导出格式：md / docx / pdf / txt / html"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Response:
+    """把「当前版本」的正文导出为指定格式的文件。
+
+    文件名 = 原文件名(V版本号).ext。docx/pdf 由正文（Markdown）重新生成。
+    """
+    doc = _get_doc(doc_id, db, user)
+    md = doc.content or ""
+    if not md.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "当前版本没有可导出的正文内容")
+    try:
+        data, mime, ext = format_service.render(fmt, md, doc.title)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    name = format_service.download_name(
+        doc.original_name, doc.doc_type, doc.revision or 1, ext
+    )
+    quoted = quote(name)
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quoted}"}
+    return Response(content=data, media_type=mime, headers=headers)
 
 
 @router.put("/{doc_id}", response_model=DocumentOut)

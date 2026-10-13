@@ -815,3 +815,59 @@ button { font-family: inherit; cursor: pointer; }
 .rich-pdf { width: 100%; height: 72vh; border: 0; background: #fff; }
 .original-toggle { margin-bottom: 12px; font-size: 13px; }
 .editor-original { margin-bottom: 14px; }
+
+/* 富文本编辑器 */
+.rt-editor { margin-top: 4px; }
+.rt-toolbar {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 7px 10px; border-radius: 12px 12px 0 0;
+  background: rgba(155,89,255,.12); border: 1px solid rgba(155,89,255,.28);
+  border-bottom: none;
+}
+.rt-toolbar button {
+  min-width: 30px; height: 28px; padding: 0 8px; cursor: pointer;
+  background: rgba(255,255,255,.05); color: #e6dcff; font-size: 13px;
+  border: 1px solid rgba(155,89,255,.25); border-radius: 7px;
+}
+.rt-toolbar button:hover { background: rgba(155,89,255,.28); }
+.rt-sep { width: 1px; height: 18px; background: rgba(155,89,255,.35); margin: 0 4px; }
+.rt-hint { font-size: 12px; color: #aab0d0; }
+.rt-modes { margin-left: auto; display: flex; gap: 0; }
+.rt-modes .rt-mode {
+  border-radius: 0; border-right: none; font-size: 12px; color: #aab0d0;
+}
+.rt-modes .rt-mode:first-child { border-radius: 7px 0 0 7px; }
+.rt-modes .rt-mode:last-child { border-radius: 0 7px 7px 0; border-right: 1px solid rgba(155,89,255,.25); }
+.rt-modes .rt-mode.active { background: rgba(155,89,255,.5); color: #fff; }
+.rt-rich, .rt-md {
+  min-height: 420px; padding: 20px 24px; outline: none; color: #e8ecff;
+  background: rgba(8,10,22,.7); border: 1px solid rgba(155,89,255,.3);
+  border-radius: 0 0 12px 12px; font-size: 14px; line-height: 1.85;
+}
+.rt-md { width: 100%; resize: vertical; font-family: Consolas, "Microsoft YaHei", monospace; }
+.rt-rich:focus, .rt-md:focus { border-color: rgba(155,89,255,.7); }
+.rt-rich:empty:before { content: attr(data-ph); color: #7a80a0; }
+.rt-rich h1 { font-size: 24px; margin: 14px 0 10px; }
+.rt-rich h2 { font-size: 20px; margin: 12px 0 8px; }
+.rt-rich h3 { font-size: 16px; margin: 10px 0 6px; }
+.rt-rich ul, .rt-rich ol { padding-left: 26px; margin: 8px 0; }
+.rt-rich blockquote {
+  border-left: 3px solid rgba(155,89,255,.5); margin: 10px 0; padding: 4px 14px; color: #c9cde8;
+}
+.rt-rich table { border-collapse: collapse; margin: 10px 0; width: 100%; }
+.rt-rich th, .rt-rich td { border: 1px solid rgba(155,89,255,.28); padding: 7px 11px; }
+.rt-rich th { background: rgba(155,89,255,.14); }
+
+/* 下载当前版本：格式菜单 */
+.dl-wrap { position: relative; display: inline-block; }
+.dl-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
+  min-width: 190px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: rgba(20,22,42,.99); border: 1px solid rgba(155,89,255,.4);
+  border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+}
+.dl-menu button {
+  text-align: left; padding: 9px 12px; cursor: pointer; font-size: 13px;
+  color: #dfe4ff; background: transparent; border: none; border-radius: 8px;
+}
+.dl-menu button:hover { background: rgba(155,89,255,.24); }

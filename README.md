@@ -208,7 +208,8 @@ npm run dev
 | GET | `/api/documents` | 列表（`q`/`status`/`owner_id`/`page`/`page_size`） |
 | GET | `/api/documents/{id}` | 详情（含 `revision` 版本号） |
 | GET | `/api/documents/{id}/content` | 提取出的纯文本全文（「原文」阅读视图） |
-| GET | `/api/documents/{id}/raw` | 下载/预览原始上传文件（PDF 可内嵌） |
+| GET | `/api/documents/{id}/raw` | 下载/预览原始上传文件（`?inline=true` 时 PDF 内嵌预览） |
+| GET | `/api/documents/{id}/export` | 导出**当前版本**（`?format=md\|docx\|pdf\|txt\|html`），文件名 `原名(V版本号).ext` |
 | GET | `/api/documents/{id}/chunks` | 该文档全部分块（AI 检索单元） |
 | PUT | `/api/documents/{id}` | 在线编辑正文（存历史快照 → 重建分块与向量） |
 | GET | `/api/documents/{id}/revisions` | 历史版本列表 |
@@ -254,7 +255,7 @@ npm run dev
 - 支持 **PDF / Word(.docx) / TXT / Markdown**，单个 ≤ `MAX_DOC_MB`（默认 50MB）。
 - 上传后同步解析提取文本 → 语义分块（默认 800 字/块、重叠 120 字）→ 后台补向量。
 - 首页文档列表支持**关键词搜索**、**按状态筛选**（全部 / 已就绪 / 处理中 / 失败）、分页。
-- 文档详情页可查看**原文样式/纯文本/分块**三种视图、改名、**在线编辑正文**（存历史版本可回滚）、**重建索引**、删除，并可「**问问 AI**」总结该文档。
+- 文档详情页可查看**原文样式/纯文本/分块**三种视图、改名、**在线编辑正文**（富文本所见即所得，Markdown 为交换格式；存历史版本可回滚）、**重建索引**、**下载当前版本**（导出为 Word/PDF/Markdown/TXT）、删除，并可「**问问 AI**」总结该文档。
 
 ### AI 助手（对话式问答，带出处）
 
