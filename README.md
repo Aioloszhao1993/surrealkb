@@ -207,7 +207,9 @@ npm run dev
 | POST | `/api/documents` | 上传文档（multipart，≤50MB，自动解析 + 分块） |
 | GET | `/api/documents` | 列表（`q`/`status`/`owner_id`/`page`/`page_size`） |
 | GET | `/api/documents/{id}` | 详情 |
-| GET | `/api/documents/{id}/chunks` | 该文档全部分块 |
+| GET | `/api/documents/{id}/content` | 提取出的纯文本全文（「原文」阅读视图） |
+| GET | `/api/documents/{id}/raw` | 下载/预览原始上传文件（PDF 可内嵌） |
+| GET | `/api/documents/{id}/chunks` | 该文档全部分块（AI 检索单元） |
 | PATCH | `/api/documents/{id}` | 改标题 |
 | DELETE | `/api/documents/{id}` | 删除（上传者或管理员） |
 | POST | `/api/documents/{id}/reindex` | 重新解析并重建向量索引 |

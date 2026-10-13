@@ -12,6 +12,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -20,9 +21,24 @@ from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Chunk, Document, User
-from ..schemas import ChunkOut, DocumentOut, DocumentPage, DocumentUpdate
+from ..schemas import (
+    ChunkOut,
+    DocumentContent,
+    DocumentOut,
+    DocumentPage,
+    DocumentUpdate,
+)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
+
+# 原始文件的 MIME（用于直接下载/内嵌预览）
+DOC_MIME = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+    ".markdown": "text/markdown; charset=utf-8",
+}
 
 
 def _require_tenant(user: User) -> int:
@@ -154,6 +170,41 @@ def get_document_chunks(
         select(Chunk).where(Chunk.document_id == doc_id).order_by(Chunk.seq.asc())
     ).all()
     return [ChunkOut.model_validate(r) for r in rows]
+
+
+@router.get("/{doc_id}/content", response_model=DocumentContent)
+def get_document_content(
+    doc_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> DocumentContent:
+    """文档提取出的纯文本全文（供「原文」阅读视图）。"""
+    tenant_id = _require_tenant(user)
+    doc = db.get(Document, doc_id)
+    if not doc or doc.tenant_id != tenant_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文档不存在")
+    return DocumentContent(
+        id=doc.id,
+        title=doc.title,
+        content=doc.content or "",
+        char_count=doc.char_count or 0,
+    )
+
+
+@router.get("/{doc_id}/raw")
+def get_document_raw(
+    doc_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> FileResponse:
+    """下载/预览原始上传文件（PDF 可内嵌、Word/TXT 下载）。"""
+    tenant_id = _require_tenant(user)
+    doc = db.get(Document, doc_id)
+    if not doc or doc.tenant_id != tenant_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文档不存在")
+    path = settings.upload_path / doc.filename
+    if not path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "原始文件已丢失")
+    ext = Path(doc.filename).suffix.lower()
+    mime = DOC_MIME.get(ext, "application/octet-stream")
+    name = doc.original_name or path.name
+    return FileResponse(path, media_type=mime, filename=name)
 
 
 @router.patch("/{doc_id}", response_model=DocumentOut)

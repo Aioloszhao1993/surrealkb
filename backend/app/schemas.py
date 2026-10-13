@@ -139,6 +139,15 @@ class ChunkOut(BaseModel):
     content: str
 
 
+class DocumentContent(BaseModel):
+    """文档提取出的纯文本全文（供「原文」阅读视图）。"""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    content: str
+    char_count: int = 0
+
+
 # ---------- AI 问答 ----------
 class ChatIn(BaseModel):
     question: str = Field(min_length=1, max_length=1000)

@@ -19,6 +19,9 @@ ADD_COLUMNS = {
     "chat_messages": [
         ("tenant_id", "INT NULL"),
     ],
+    "documents": [
+        ("content", "LONGTEXT NULL"),
+    ],
 }
 
 
@@ -87,7 +90,46 @@ def main() -> None:
                 print(f"[migrate] user {uname} -> tenant #{tid}")
             if not rows:
                 print("[migrate] 所有用户都有知识库，跳过")
+
+    # 回填历史文档的全文（新增 documents.content 列后，旧数据为 NULL）
+    _backfill_document_content()
     print("[migrate] done OK")
+
+
+def _backfill_document_content() -> None:
+    """为 content 为空的已就绪文档，从原始文件重新提取全文。"""
+    from sqlalchemy.orm import Session as _Session
+
+    from app import doc_service
+    from app.config import settings
+    from app.models import Document
+
+    db = _Session(bind=engine)
+    try:
+        docs = (
+            db.query(Document)
+            .filter(Document.content.is_(None))
+            .filter(Document.status == "ready")
+            .all()
+        )
+        fixed = 0
+        for doc in docs:
+            path = settings.upload_path / doc.filename
+            if not path.exists():
+                print(f"[migrate] doc#{doc.id} 原文件缺失，跳过回填")
+                continue
+            try:
+                text = doc_service.normalize(
+                    doc_service.extract_text(path, doc.doc_type)
+                )
+                doc.content = text or ""
+                fixed += 1
+            except Exception as exc:  # noqa: BLE001
+                print(f"[migrate] doc#{doc.id} 回填失败: {exc}")
+        db.commit()
+        print(f"[migrate] 回填文档全文 {fixed}/{len(docs)}")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

@@ -26,6 +26,8 @@ export default function DocDetail() {
   const nav = useNavigate()
   const [doc, setDoc] = useState(null)
   const [chunks, setChunks] = useState([])
+  const [content, setContent] = useState(null) // 提取出的纯文本全文
+  const [tab, setTab] = useState('content') // content | chunks
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,9 +51,26 @@ export default function DocDetail() {
     }
   }, [id])
 
+  const loadContent = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/documents/${id}/content`)
+      setContent(data.content || '')
+    } catch (e) {
+      setContent('')
+      flash(errMsg(e))
+    }
+  }, [id])
+
   useEffect(() => {
     load()
   }, [load])
+
+  // 切到「原文」时按需拉取全文（大文本不在首屏加载）
+  useEffect(() => {
+    if (tab === 'content' && content === null && doc?.status === 'ready') {
+      loadContent()
+    }
+  }, [tab, content, doc, loadContent])
 
   const saveTitle = async () => {
     if (!title.trim() || title.trim() === doc.title) {
@@ -73,7 +92,9 @@ export default function DocDetail() {
     try {
       await api.post(`/documents/${id}/reindex`)
       flash('已重建索引')
+      setContent(null)
       await load()
+      await loadContent()
     } catch (e) {
       flash(errMsg(e))
     } finally {
@@ -86,6 +107,18 @@ export default function DocDetail() {
     try {
       await api.delete(`/documents/${id}`)
       nav('/')
+    } catch (e) {
+      flash(errMsg(e))
+    }
+  }
+
+  // 打开原始文件：经带 token 的请求取回 blob（PDF 可内嵌预览，Word/TXT 下载）
+  const openRaw = async () => {
+    try {
+      const res = await api.get(`/documents/${id}/raw`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch (e) {
       flash(errMsg(e))
     }
@@ -150,6 +183,9 @@ export default function DocDetail() {
           <button className="btn action ai-ask-btn" onClick={ask} disabled={doc.status !== 'ready'}>
             ✦ 问问 AI
           </button>
+          <button className="btn ghost" onClick={openRaw}>
+            查看原文件
+          </button>
           {mine && (
             <>
               <button className="btn ghost" onClick={reindex} disabled={busy}>
@@ -174,8 +210,35 @@ export default function DocDetail() {
         </div>
       )}
 
-      <h2 className="section-title">文档分块（{chunks.length}）</h2>
-      {chunks.length === 0 ? (
+      <div className="doc-tabs">
+        <button
+          className={`tab-btn${tab === 'content' ? ' active' : ''}`}
+          onClick={() => setTab('content')}
+        >
+          原文
+        </button>
+        <button
+          className={`tab-btn${tab === 'chunks' ? ' active' : ''}`}
+          onClick={() => setTab('chunks')}
+        >
+          分块（{chunks.length}）
+          <span className="tab-hint" title="分块是喂给 AI 检索的片段，普通阅读请用「原文」">
+            ?
+          </span>
+        </button>
+      </div>
+
+      {tab === 'content' ? (
+        doc.status !== 'ready' ? (
+          <div className="empty">文档尚未就绪，暂无正文。</div>
+        ) : content === null ? (
+          <div className="page-loading">正在加载原文…</div>
+        ) : content ? (
+          <article className="doc-content">{content}</article>
+        ) : (
+          <div className="empty">未能提取到正文内容。</div>
+        )
+      ) : chunks.length === 0 ? (
         <div className="empty">这篇文档还没有分块内容。</div>
       ) : (
         <div className="chunk-list">

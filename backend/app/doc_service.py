@@ -229,6 +229,7 @@ def build_chunks(db: Session, document: Document, text: str, reflow: bool = True
         )
     document.chunk_count = len(pieces)
     document.char_count = len(text)
+    document.content = text  # 保留全文，供「原文」视图查看
     db.commit()
     return len(pieces)
 

@@ -24,6 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -89,6 +90,11 @@ class Document(Base):
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     char_count: Mapped[int] = mapped_column(Integer, default=0)
+    # 提取出的全文（供「原文」阅读视图）；MySQL 用 LONGTEXT，其他方言回退 TEXT
+    # deferred=True：列表/详情查询默认不加载，避免把大字段全拖回来
+    content: Mapped[str | None] = mapped_column(
+        Text().with_variant(LONGTEXT, "mysql"), nullable=True, deferred=True
+    )
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
