@@ -202,7 +202,7 @@ def _finish_login(db: Session, state: str, user: User) -> None:
 
 
 _MOCK_PAGE = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<title>模拟微信扫码 · SurrealVideo</title>
+<title>模拟微信扫码 · SurrealKB</title>
 <style>
  body{{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,"Microsoft YaHei";
  background:radial-gradient(circle at 20% 20%,#2a1055,#0a0618 60%,#05030d);color:#eae6ff}}

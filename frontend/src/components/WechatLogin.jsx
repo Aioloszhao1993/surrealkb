@@ -82,7 +82,7 @@ export default function WechatLogin({ onClose, onDone }) {
           ✕
         </button>
         <h2 className="wx-title">微信扫码登录</h2>
-        <p className="wx-sub">用微信扫一扫，快速登录 SurrealVideo</p>
+        <p className="wx-sub">用微信扫一扫，快速登录 SurrealKB</p>
 
         <div className="wx-qr-wrap">
           {qr ? (
