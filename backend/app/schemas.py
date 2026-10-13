@@ -51,7 +51,10 @@ class TenantOut(BaseModel):
     name: str
     slug: str
     description: str | None = None
-    invite_code: str
+    # 邀请码：仅 owner/admin 可见（普通成员为 None，避免任意成员拉人）
+    invite_code: str | None = None
+    # 当前用户是否有权管理（复制/重置邀请码、视为管理员）
+    can_manage: bool = False
     created_at: datetime
     member_count: int = 0
     document_count: int = 0

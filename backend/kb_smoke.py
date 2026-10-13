@@ -54,6 +54,7 @@ def main() -> int:
     tenant = r.json()
     check(tenant["invite_code"], f"邀请码 {tenant.get('invite_code')}")
     check(tenant["member_count"] == 1, f"成员数=1 ({tenant.get('member_count')})")
+    check(tenant.get("can_manage") is True, "owner 可管理 (can_manage=True)")
 
     print("\n=== 3. 上传 TXT 文档 ===")
     content = (
@@ -164,6 +165,28 @@ def main() -> int:
     check(r.status_code == 200, f"加入知识库 200 ({r.status_code}) {r.text[:100]}")
     r = client.get("/api/documents", headers=auth(tok3))
     check(r.json()["total"] >= 2, f"新成员可见库内文档 total={r.json().get('total')}")
+
+    print("\n=== 9b. 邀请码权限（仅 owner/admin 可见与管理）===")
+    # 普通成员看 current：invite_code 应为 None，can_manage=False
+    r = client.get("/api/tenants/current", headers=auth(tok3))
+    check(r.status_code == 200, "成员 tenants/current 200")
+    mt = r.json()
+    check(mt.get("invite_code") is None, f"成员看不到邀请码 ({mt.get('invite_code')})")
+    check(mt.get("can_manage") is False, "成员 can_manage=False")
+    # 成员重置邀请码 -> 403
+    r = client.post("/api/tenants/invite/reset", headers=auth(tok3))
+    check(r.status_code == 403, f"成员重置被拒 ({r.status_code})")
+    # owner 重置 -> 200，新码与旧码不同，旧码失效
+    r = client.post("/api/tenants/invite/reset", headers=auth(tok))
+    check(r.status_code == 200, f"owner 重置 200 ({r.status_code})")
+    new_code = r.json().get("invite_code")
+    check(new_code and new_code != invite, f"新码已变 ({invite} -> {new_code})")
+    r2 = client.post("/api/auth/register", json={"username": f"kb4_{sfx}", "password": "pass123456"})
+    tok4 = client.post("/api/auth/login", json={"username": f"kb4_{sfx}", "password": "pass123456"}).json()["access_token"]
+    r = client.post("/api/tenants/join", headers=auth(tok4), json={"invite_code": invite})
+    check(r.status_code == 404, f"旧码已失效 ({r.status_code})")
+    r = client.post("/api/tenants/join", headers=auth(tok4), json={"invite_code": new_code})
+    check(r.status_code == 200, f"新码可用 ({r.status_code})")
 
     print("\n=== 10. 删除文档 ===")
     r = client.delete(f"/api/documents/{doc_id}", headers=auth(tok))

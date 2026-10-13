@@ -38,22 +38,35 @@ def _counts(db: Session, tenant_id: int) -> tuple[int, int]:
     return members, docs
 
 
-def _serialize(db: Session, tenant: Tenant) -> TenantOut:
+def _can_manage(user: User) -> bool:
+    """是否具备知识库管理权限（复制 / 重置邀请码）。"""
+    return user.role in ("owner", "admin")
+
+
+def _serialize(db: Session, tenant: Tenant, user: User) -> TenantOut:
     members, docs = _counts(db, tenant.id)
     out = TenantOut.model_validate(tenant)
     out.member_count = members
     out.document_count = docs
+    manage = _can_manage(user)
+    out.can_manage = manage
+    # 非管理员看不到邀请码（避免任意成员拉人）
+    out.invite_code = tenant.invite_code if manage else None
     return out
 
 
-@router.get("/current", response_model=TenantOut)
-def current_tenant(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> TenantOut:
+def _get_current_tenant(db: Session, user: User) -> Tenant:
     if not user.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "你还没有加入任何知识库")
     tenant = db.get(Tenant, user.tenant_id)
     if not tenant:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "知识库不存在")
-    return _serialize(db, tenant)
+    return tenant
+
+
+@router.get("/current", response_model=TenantOut)
+def current_tenant(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> TenantOut:
+    return _serialize(db, _get_current_tenant(db, user), user)
 
 
 @router.post("", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
@@ -78,7 +91,28 @@ def create_tenant(
     user.role = "owner"
     db.commit()
     db.refresh(tenant)
-    return _serialize(db, tenant)
+    return _serialize(db, tenant, user)
+
+
+@router.post("/invite/reset", response_model=TenantOut)
+def reset_invite_code(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> TenantOut:
+    """重置邀请码（仅 owner/admin）。旧码立即失效，需重新分享给成员。"""
+    tenant = _get_current_tenant(db, user)
+    if not _can_manage(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "只有创建者或管理员可以重置邀请码")
+    # 生成唯一新码
+    for _ in range(10):
+        code = secrets.token_hex(4)
+        if not db.scalar(select(Tenant).where(Tenant.invite_code == code)):
+            break
+    else:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "生成邀请码失败，请重试")
+    tenant.invite_code = code
+    db.commit()
+    db.refresh(tenant)
+    return _serialize(db, tenant, user)
 
 
 @router.post("/join", response_model=TenantOut)
@@ -95,7 +129,7 @@ def join_tenant(
     user.role = "member"
     db.commit()
     db.refresh(tenant)
-    return _serialize(db, tenant)
+    return _serialize(db, tenant, user)
 
 
 @router.get("/members", response_model=list[UserPublic])

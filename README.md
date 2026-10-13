@@ -193,9 +193,10 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/tenants/current` | 当前知识库信息（含成员数 / 文档数） |
+| GET | `/api/tenants/current` | 当前知识库信息（含成员数 / 文档数；邀请码仅 owner/admin 可见） |
 | POST | `/api/tenants` | 创建知识库（当前用户设为 owner） |
 | POST | `/api/tenants/join` | 凭邀请码加入 |
+| POST | `/api/tenants/invite/reset` | 重置邀请码（仅 owner/admin，旧码立即失效） |
 | GET | `/api/tenants/members` | 成员列表 |
 | GET | `/api/tenants/members/detail` | 成员明细（含角色） |
 
@@ -236,9 +237,11 @@ npm run dev
 ### 知识库（多租户）
 
 - 注册时可选：**创建自己的知识库**（`tenant_name`）或用**邀请码加入**团队知识库；都不填则暂时无库，登录后在「知识库」页创建或加入。
-- 每个知识库有唯一**邀请码**，在「知识库」页可复制分享给同事。
+- 每个知识库有唯一**邀请码**；**仅创建者 / 管理员（owner/admin）可见、可复制、可重置**，普通成员看不到邀请码（避免任意成员拉人）。
+- 「重置邀请码」后旧码立即失效，已分享出去的码无法再加入，需重新分享新码。
 - **租户隔离**：文档、分块、AI 检索全部限定在当前用户所属知识库内，看不到别的库。
 - 角色：`owner`（建库者）/ `admin`（管理员）/ `member`（成员）。删除文档时上传者或 owner/admin 可删。
+- **一个用户同一时间只属于一个知识库**（`user.tenant_id` 单值）；加入时若已有库会提示。
 
 ### 文档（上传 → 解析 → 分块）
 

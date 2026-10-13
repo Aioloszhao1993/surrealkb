@@ -68,11 +68,23 @@ export default function Team() {
   }
 
   const copyInvite = async () => {
+    if (!tenant?.invite_code) return
     try {
       await navigator.clipboard.writeText(tenant.invite_code)
       flash('邀请码已复制')
     } catch {
       flash(tenant.invite_code)
+    }
+  }
+
+  const doResetInvite = async () => {
+    if (!window.confirm('重置后旧邀请码立即失效，已分享出去的邀请码将无法再加入。确定重置？')) return
+    try {
+      const { data } = await api.post('/tenants/invite/reset')
+      setTenant(data)
+      flash('邀请码已重置')
+    } catch (err) {
+      flash(errMsg(err))
     }
   }
 
@@ -135,13 +147,22 @@ export default function Team() {
             {tenant.member_count} 位成员 · {tenant.document_count} 篇文档
           </p>
         </div>
-        <div className="team-invite">
-          <span className="faint">邀请码</span>
-          <code>{tenant.invite_code}</code>
-          <button className="btn ghost" onClick={copyInvite}>
-            复制
-          </button>
-        </div>
+        {tenant.can_manage ? (
+          <div className="team-invite">
+            <span className="faint">邀请码</span>
+            <code>{tenant.invite_code}</code>
+            <button className="btn ghost" onClick={copyInvite}>
+              复制
+            </button>
+            <button className="btn ghost" onClick={doResetInvite}>
+              重置
+            </button>
+          </div>
+        ) : (
+          <div className="team-invite">
+            <span className="faint">邀请码由创建者管理</span>
+          </div>
+        )}
       </div>
 
       <h2 className="section-title">成员（{members.length}）</h2>
