@@ -2,6 +2,7 @@
 import shutil
 import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -257,7 +258,10 @@ def get_document_content(
 
 @router.get("/{doc_id}/raw")
 def get_document_raw(
-    doc_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    doc_id: int,
+    inline: bool = Query(False, description="true 时在浏览器内联预览（PDF），否则下载"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> FileResponse:
     """下载/预览原始上传文件（PDF 可内嵌、Word/TXT 下载）。"""
     doc = _get_doc(doc_id, db, user)
@@ -266,8 +270,12 @@ def get_document_raw(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "原始文件已丢失")
     ext = Path(doc.filename).suffix.lower()
     mime = DOC_MIME.get(ext, "application/octet-stream")
-    name = doc.original_name or path.name
-    return FileResponse(path, media_type=mime, filename=name)
+    name = (doc.original_name or path.name).replace('"', "")
+    # 中文文件名用 RFC 5987 编码，避免头部非法字符
+    disp = "inline" if inline else "attachment"
+    quoted = quote(name)
+    headers = {"Content-Disposition": f"{disp}; filename*=UTF-8''{quoted}"}
+    return FileResponse(path, media_type=mime, headers=headers)
 
 
 @router.put("/{doc_id}", response_model=DocumentOut)

@@ -4,6 +4,7 @@ import api, { errMsg } from '../api'
 import { num, timeAgo } from '../components/format'
 import Avatar from '../components/Avatar'
 import HoverUser from '../components/UserHoverCard'
+import RichPreview from '../components/RichPreview'
 import { useAuth } from '../store'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
@@ -27,7 +28,7 @@ export default function DocDetail() {
   const [doc, setDoc] = useState(null)
   const [chunks, setChunks] = useState([])
   const [content, setContent] = useState(null) // 提取出的纯文本全文
-  const [tab, setTab] = useState('content') // content | chunks
+  const [tab, setTab] = useState('rich') // rich | content | chunks
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
@@ -42,6 +43,7 @@ export default function DocDetail() {
   // 版本历史
   const [revisions, setRevisions] = useState(null)
   const [viewRev, setViewRev] = useState(null) // { revision, title, content }
+  const [showOriginal, setShowOriginal] = useState(false) // 编辑时对照原文样式
 
   const flash = (m) => {
     setToast(m)
@@ -305,6 +307,19 @@ export default function DocDetail() {
               </button>
             </div>
           </div>
+
+          <button
+            className="link original-toggle"
+            onClick={() => setShowOriginal((v) => !v)}
+          >
+            {showOriginal ? '▾ 收起原文样式' : '▸ 先看原文样式（对照编辑）'}
+          </button>
+          {showOriginal && (
+            <div className="editor-original">
+              <RichPreview doc={doc} />
+            </div>
+          )}
+
           <textarea
             className="editor-area"
             value={draft}
@@ -319,23 +334,38 @@ export default function DocDetail() {
         <>
           <div className="doc-tabs">
             <button
+              className={`tab-btn${tab === 'rich' ? ' active' : ''}`}
+              onClick={() => setTab('rich')}
+            >
+              原文样式
+              <span className="tab-hint" title="尽量还原上传文件原本的排版（Word/Markdown/PDF）">
+                ?
+              </span>
+            </button>
+            <button
               className={`tab-btn${tab === 'content' ? ' active' : ''}`}
               onClick={() => setTab('content')}
             >
-              原文
+              纯文本
             </button>
             <button
               className={`tab-btn${tab === 'chunks' ? ' active' : ''}`}
               onClick={() => setTab('chunks')}
             >
               分块（{chunks.length}）
-              <span className="tab-hint" title="分块是喂给 AI 检索的片段，普通阅读请用「原文」">
+              <span className="tab-hint" title="分块是喂给 AI 检索的片段，普通阅读请用「原文样式」">
                 ?
               </span>
             </button>
           </div>
 
-          {tab === 'content' ? (
+          {tab === 'rich' ? (
+            doc.status !== 'ready' ? (
+              <div className="empty">文档尚未就绪，暂无预览。</div>
+            ) : (
+              <RichPreview doc={doc} />
+            )
+          ) : tab === 'content' ? (
             doc.status !== 'ready' ? (
               <div className="empty">文档尚未就绪，暂无正文。</div>
             ) : content === null ? (
