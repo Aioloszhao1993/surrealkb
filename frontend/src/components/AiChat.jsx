@@ -15,7 +15,7 @@ function getSessionKey() {
 
 const WELCOME = {
   role: 'assistant',
-  content: '你好，我是 Friday 🌙 SurrealVideo 的 AI 助手。\n可以问我「站里有什么视频」「帮我找讲 XX 的视频」，或者随便聊两句。',
+  content: '你好，我是 Friday 🌙 你的企业知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
 }
 
 export default function AiChat() {
@@ -133,9 +133,16 @@ export default function AiChat() {
                 <div className="ai-bubble">{m.content}</div>
                 {m.sources?.length > 0 && (
                   <div className="ai-sources">
-                    {m.sources.map((s) => (
-                      <Link key={s.id} to={`/watch/${s.id}`} className="ai-source" onClick={() => setOpen(false)}>
-                        ▶ {s.title}
+                    {m.sources.map((s, si) => (
+                      <Link
+                        key={si}
+                        to={`/doc/${s.document_id}`}
+                        className="ai-source"
+                        onClick={() => setOpen(false)}
+                        title={s.snippet}
+                      >
+                        📄 {s.title}
+                        <span className="ai-score">{(s.score * 100).toFixed(0)}%</span>
                       </Link>
                     ))}
                   </div>
@@ -158,7 +165,7 @@ export default function AiChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder="问点什么…（Enter 发送）"
+              placeholder="基于知识库提问…（Enter 发送）"
               disabled={busy}
             />
             <button onClick={send} disabled={busy || !input.trim()}>

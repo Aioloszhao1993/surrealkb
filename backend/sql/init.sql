@@ -1,4 +1,4 @@
--- SurrealVideo 数据库初始化
+-- SurrealKB 数据库初始化
 -- 若不需要自动建表，可手动执行本脚本
 CREATE DATABASE IF NOT EXISTS `video_fastqpi`
   DEFAULT CHARACTER SET utf8mb4

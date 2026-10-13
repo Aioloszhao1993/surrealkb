@@ -1,8 +1,19 @@
-"""ORM 模型：用户 / 视频 / 点赞 / 收藏。"""
+"""ORM 模型：知识库(租户) / 用户 / 文档 / 分块 / 关注 / 微信登录 / 会话消息。
+
+从「视频站」改造为「企业知识库问答站」：
+- Tenant  = 一个知识库（团队/企业），租户隔离的边界
+- User    = 属于某个租户的成员
+- Document= 上传的文档（pdf/docx/txt/md）
+- Chunk   = 文档切分后的片段 + 向量（RAG 检索单元）
+- ChatMessage = AI 问答历史
+
+旧的 videos / likes / favorites / video_embeddings 表已不再映射（保留在库中未删除，可回滚）。
+"""
 from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -21,6 +32,26 @@ from .database import Base
 BigIntPK = BigInteger().with_variant(Integer, "sqlite")
 
 
+# ---------------------------------------------------------------- 知识库（租户）
+class Tenant(Base):
+    """一个知识库 = 一个租户（团队 / 企业）。所有文档、分块、问答都按它隔离。"""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)      # 知识库名称
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # 唯一标识
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    invite_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)  # 邀请成员用的码
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    members: Mapped[list["User"]] = relationship(back_populates="tenant")
+    documents: Mapped[list["Document"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------- 用户
 class User(Base):
     __tablename__ = "users"
 
@@ -31,86 +62,68 @@ class User(Base):
     avatar: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     bio: Mapped[str | None] = mapped_column(String(200), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    # 所属知识库 + 角色（owner 建库者 / admin 管理员 / member 普通成员）
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    role: Mapped[str] = mapped_column(String(16), default="member")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    # 移除用户后，级联删除其视频、点赞、收藏等
-    videos: Mapped[list["Video"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+
+    tenant: Mapped["Tenant | None"] = relationship(back_populates="members")
 
 
-class Video(Base):
-    __tablename__ = "videos"
+# ---------------------------------------------------------------- 文档
+class Document(Base):
+    __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    filename: Mapped[str] = mapped_column(String(255), nullable=False)   # 存储文件名
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)          # 存储文件名
     original_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    cover: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 可选封面
-    size: Mapped[int] = mapped_column(BigInteger, default=0)               # 字节
-    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    views: Mapped[int] = mapped_column(Integer, default=0)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    doc_type: Mapped[str] = mapped_column(String(16), default="txt")            # pdf/docx/txt/md
+    size: Mapped[int] = mapped_column(BigInteger, default=0)                    # 字节
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending/ready/failed
+    error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    char_count: Mapped[int] = mapped_column(Integer, default=0)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
-    owner: Mapped["User"] = relationship(back_populates="videos")
-    # 级联删除：视频被删后，相关的点赞、收藏也删掉
-    likes: Mapped[list["Like"]] = relationship(back_populates="video", cascade="all, delete-orphan")
-    favorites: Mapped[list["Favorite"]] = relationship(
-        back_populates="video", cascade="all, delete-orphan"
+    tenant: Mapped["Tenant"] = relationship(back_populates="documents")
+    chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
     )
 
 
-class Like(Base):
-    __tablename__ = "likes"
-    __table_args__ = (UniqueConstraint("user_id", "video_id", name="uq_like_user_video"),)
+# ---------------------------------------------------------------- 分块（RAG 检索单元）
+class Chunk(Base):
+    __tablename__ = "chunks"
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    video: Mapped["Video"] = relationship(back_populates="likes")
-
-
-class Favorite(Base):
-    __tablename__ = "favorites"
-    # 同一视频不能被同一个用户重复收藏（user_id + video_id 唯一约束）
-    __table_args__ = (UniqueConstraint("user_id", "video_id", name="uq_fav_user_video"),)
-
-    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    video: Mapped["Video"] = relationship(back_populates="favorites")
-
-
-# ---------- 索引：按创建时间倒序，方便分页查询最新视频 ----------
-Index("ix_videos_owner_created", Video.owner_id, Video.created_at.desc())
-
-
-# ---------- AI：视频向量索引（手写轻量 RAG，不引入外部向量库）----------
-class VideoEmbedding(Base):
-    __tablename__ = "video_embeddings"
-
-    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
-    video_id: Mapped[int] = mapped_column(
-        ForeignKey("videos.id", ondelete="CASCADE"), unique=True, index=True
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
-    model: Mapped[str] = mapped_column(String(64), default="text-embedding-v3")
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer, default=0)          # 第几块
+    content: Mapped[str] = mapped_column(Text, nullable=False)    # 分块文本
+    # float32 向量原始字节（MySQL BLOB），检索时进程内算余弦
+    vector: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     dim: Mapped[int] = mapped_column(Integer, default=1024)
-    # 源文本指纹：视频标题/简介变了就重新向量化
-    source_hash: Mapped[str] = mapped_column(String(64), default="")
-    # float32 向量的原始字节（MySQL BLOB / SQLite BLOB），检索时在进程内算余弦相似度
-    vector: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    document: Mapped["Document"] = relationship(back_populates="chunks")
 
 
-# ---------- 关注关系（B 站式关注/粉丝）----------
+# ---------------------------------------------------------------- 关注（保留）
 class Follow(Base):
     __tablename__ = "follows"
-    # 不能重复关注同一个人（follower_id + followee_id 唯一约束）
     __table_args__ = (UniqueConstraint("follower_id", "followee_id", name="uq_follow_pair"),)
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
@@ -123,14 +136,14 @@ class Follow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-# ---------- 微信扫码登录：临时 state 会话 ----------
+# ---------------------------------------------------------------- 微信扫码登录
 class WxLoginState(Base):
     __tablename__ = "wx_login_states"
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
     state: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     mode: Mapped[str] = mapped_column(String(8), default="mock")  # mock / real
-    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending/confirmed/consumed
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -138,7 +151,7 @@ class WxLoginState(Base):
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-# ---------- AI：会话消息（保留历史）----------
+# ---------------------------------------------------------------- AI 会话消息
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
@@ -146,7 +159,14 @@ class ChatMessage(Base):
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     session_key: Mapped[str] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(16))  # user / assistant
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
+Index("ix_documents_tenant_created", Document.tenant_id, Document.created_at.desc())
+Index("ix_chunks_tenant_doc", Chunk.tenant_id, Chunk.document_id)

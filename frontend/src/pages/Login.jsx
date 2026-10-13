@@ -30,8 +30,8 @@ export default function Login() {
 
   return (
     <div className="auth-card">
-      <h1 className="auth-title">回到梦境</h1>
-      <p className="auth-sub">登录以点赞、收藏与上传</p>
+      <h1 className="auth-title">登录</h1>
+      <p className="auth-sub">登录以管理知识库、上传文档与提问</p>
 
       <form onSubmit={submit} className="form">
         <label className="field">
@@ -64,7 +64,7 @@ export default function Login() {
       </button>
 
       <p className="auth-foot">
-        还没有账号？<Link to="/register">加入梦境</Link>
+        还没有账号？<Link to="/register">免费注册</Link>
       </p>
 
       {showWx && (

@@ -1,17 +1,17 @@
-"""AI 问答服务（方案二：手写轻量 RAG，不引入外部向量库）。
+"""AI 问答服务（手写轻量 RAG，无外部向量库）——知识库版。
 
-思路：
-1. 每有一个新视频，就把「标题 + 作者 + 简介」拼成一段文本，调百炼 text-embedding-v3
-   拿一个 1024 维向量，以 float32 原始字节存进 MySQL 的 video_embeddings 表。
-2. 用户提问时，把问题也向量化，在进程内对所有视频向量算余弦相似度，取 Top-K。
-3. 把 Top-K 的视频摘要拼进 system prompt，连同多轮历史一起交给 qwen-plus 生成答案。
-
-这样即使以后视频涨到几千条，也不需要把全部内容塞进上下文，成本恒定。
+链路：
+1. 文档上传后，doc_service 已把正文切成 Chunk（带 tenant_id）。
+2. 这里负责把「还没有向量的 Chunk」批量调百炼 text-embedding-v3（1024 维），
+   以 float32 原始字节存进 chunks.vector。
+3. 提问时把问题向量化，只在「当前用户所属租户」的 Chunk 内算余弦相似度，取 Top-K。
+4. 把命中的片段拼进 system prompt，连同多轮历史交给 qwen-plus 生成答案，并回带出处。
 """
 from __future__ import annotations
 
 import hashlib
 import math
+import re
 import struct
 import threading
 
@@ -21,12 +21,12 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .database import SessionLocal
-from .models import ChatMessage, User, Video, VideoEmbedding
+from .models import ChatMessage, Chunk, Document, User
 
 _EMBED_BATCH = 10  # text-embedding-v3 单次最多 10 条
 
-# 索引刷新互斥锁：串行化「启动补索引 / 上传自动索引 / 手动重建」，
-# 避免并发时对同一视频重复向量化，或撞 video_id 唯一键。
+# 索引刷新互斥锁：串行化「启动补索引 / 上传后自动索引 / 手动重建」，
+# 避免并发重复向量化。注意这是进程内锁，多 worker 部署需换 DB 层锁。
 _INDEX_LOCK = threading.Lock()
 
 
@@ -66,21 +66,67 @@ def _cos(a: list[float], b: list[float]) -> float:
     return dot / (math.sqrt(na) * math.sqrt(nb))
 
 
-def _fingerprint(video: Video) -> str:
-    owner = video.owner.username if video.owner else "未知"
-    text = f"{video.title}\n{owner}\n{video.description or ''}"
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+# ---------------------------------------------------------------- 关键词打分（BM25）
+# 纯向量检索对「人名 / 编号 / 具体字段」这类关键词型查询不敏感，
+# 这里加一套中文友好的 BM25（字符二元组 + 英文/数字词），与向量分数混合。
+_CJK = re.compile(r"[\u4e00-\u9fff]")
 
 
-def _doc_text(video: Video) -> str:
-    """把视频的标题、作者、简介拼成一段文本，供向量化。"""
-    owner = video.owner.username if video.owner else "未知"
-    desc = (video.description or "").strip() or "（无简介）"
-    return f"视频标题：{video.title}\n作者：{owner}\n简介：{desc}"
+def _tokens(text: str) -> list[str]:
+    """极简分词：英文/数字词 + 中文连续字的二元组（单字查询回退单字）。"""
+    low = text.lower()
+    toks: list[str] = re.findall(r"[a-z0-9]+", low)
+    cjk = _CJK.findall(low)
+    if len(cjk) == 1:
+        toks.append(cjk[0])
+    else:
+        toks.extend(cjk[i] + cjk[i + 1] for i in range(len(cjk) - 1))
+    return toks
+
+
+def _bm25(query: str, docs: list[str], k1: float = 1.5, b: float = 0.75) -> list[float]:
+    q_terms = set(_tokens(query))
+    n = len(docs)
+    if not q_terms or n == 0:
+        return [0.0] * n
+    doc_tokens = [_tokens(d) for d in docs]
+    avgdl = sum(len(t) for t in doc_tokens) / n or 1.0
+    df: dict[str, int] = {}
+    for t in doc_tokens:
+        for w in set(t):
+            df[w] = df.get(w, 0) + 1
+    scores: list[float] = []
+    for t in doc_tokens:
+        tf: dict[str, int] = {}
+        for w in t:
+            tf[w] = tf.get(w, 0) + 1
+        dl = len(t) or 1
+        s = 0.0
+        for w in q_terms:
+            f = tf.get(w)
+            if not f:
+                continue
+            idf = math.log(1 + (n - df.get(w, 0) + 0.5) / (df.get(w, 0) + 0.5))
+            s += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / avgdl))
+        scores.append(s)
+    return scores
+
+
+def _minmax(xs: list[float]) -> list[float]:
+    if not xs:
+        return []
+    lo, hi = min(xs), max(xs)
+    if hi - lo < 1e-9:
+        return [0.5] * len(xs)
+    return [(x - lo) / (hi - lo) for x in xs]
+
+
+def _fingerprint(c: Chunk) -> str:
+    return hashlib.sha1(c.content.encode("utf-8")).hexdigest()
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """调用百炼把一批文本转成向量。内部每 10 条一批（_EMBED_BATCH=10，text-embedding-v3 单次上限），逐批 POST /embeddings，并按返回的 index 排序拼接，保证顺序和输入一致"""
+    """调用百炼把一批文本转成向量（每 10 条一批，按 index 排序保证顺序）。"""
     out: list[list[float]] = []
     with _client() as c:
         for i in range(0, len(texts), _EMBED_BATCH):
@@ -97,54 +143,52 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
 
 # ---------------------------------------------------------------- 索引维护
-def refresh_embeddings(db: Session, force: bool = False) -> dict:
-    """为新增/修改过的视频补齐向量。返回统计信息。"""
-    # 前置检查，AI没配就直接退
+def refresh_embeddings(db: Session, force: bool = False, tenant_id: int | None = None) -> dict:
+    """为「尚无向量」或「内容变过」的分块补齐向量。可选只处理某个租户。"""
     if not ai_ready():
         return {"skipped": True, "reason": "no api key"}
 
-    # 串行化：同一时刻只允许一个索引刷新在跑，后到者等前者结束后再扫一遍。
     with _INDEX_LOCK:
-        # 全量拉取，建立已索引字典
-        videos = list(db.scalars(select(Video)))
-        existing = {e.video_id: e for e in db.scalars(select(VideoEmbedding))}
+        stmt = select(Chunk)
+        if tenant_id is not None:
+            stmt = stmt.where(Chunk.tenant_id == tenant_id)
+        chunks = list(db.scalars(stmt))
 
-        # 挑出需要处理的todo(增量判断)
-        todo: list[Video] = []
-        for v in videos:
-            e = existing.get(v.id)
-            # 这条视频从没建过向量(新增视频)；调用方强制重建(接口reindex用)；标题或简介变过
-            if e is None or force or e.source_hash != _fingerprint(v):
-                todo.append(v)
+        todo: list[Chunk] = []
+        for c in chunks:
+            if c.vector is None or force:
+                todo.append(c)
+            else:
+                # 内容变过（重新解析过）才重建
+                if len(c.vector) != c.dim * 4:
+                    todo.append(c)
 
         if todo:
-            # 批量向量化
-            vecs = embed_texts([_doc_text(v) for v in todo])
-            for v, vec in zip(todo, vecs):
-                e = existing.get(v.id)
-                if e is None:
-                    e = VideoEmbedding(video_id=v.id)
-                    db.add(e)  # 新增向量
-                e.model = settings.ai_embed_model
-                e.dim = len(vec)
-                e.source_hash = _fingerprint(v)  # 记下这一版指纹
-                e.vector = _pack(vec)
+            # 向量化：分块已控制在 chunk_size 附近（约 800 字），
+            # 远低于 text-embedding-v3 输入上限，无需再截断。
+            vecs = embed_texts([c.content[:4000] for c in todo])
+            for c, vec in zip(todo, vecs):
+                c.vector = _pack(vec)
+                c.dim = len(vec)
             db.commit()
 
-        total_embedded = db.scalar(select(func.count()).select_from(VideoEmbedding)) or 0
-        # 返回统计，indexed = 本次重建了几条；embedded = 库里现在共有几条向量。
-        return {"indexed": len(todo), "total_videos": len(videos), "embedded": total_embedded}
+        embedded = db.scalar(
+            select(func.count()).select_from(Chunk).where(Chunk.vector.isnot(None))
+        ) or 0
+        return {"indexed": len(todo), "total_chunks": len(chunks), "embedded": embedded}
 
 
-def index_new_video_bg() -> None:
-    """上传新视频后，后台补齐向量索引（不阻塞上传响应）。"""
+def index_document_bg(document_id: int) -> None:
+    """上传文档后，后台为该文档的分块补向量（不阻塞响应）。"""
     if not ai_ready():
         return
 
     def _run() -> None:
         db = SessionLocal()
         try:
-            refresh_embeddings(db)
+            doc = db.get(Document, document_id)
+            if doc:
+                refresh_embeddings(db, tenant_id=doc.tenant_id)
         except Exception as exc:  # noqa: BLE001
             print(f"[AI] auto index skipped: {exc}")
         finally:
@@ -153,57 +197,81 @@ def index_new_video_bg() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
-def search_videos(db: Session, query: str, top_k: int | None = None) -> list[tuple[Video, float]]:
-    """向量检索：返回 (视频, 相似度) 列表，按相似度降序。"""
+# ---------------------------------------------------------------- 检索
+def search_chunks(
+    db: Session, query: str, tenant_id: int | None, top_k: int | None = None
+) -> list[tuple[Chunk, Document, float]]:
+    """向量检索：只在租户内的分块中找，返回 (分块, 文档, 相似度) 降序。"""
     top_k = top_k or settings.ai_top_k
-    rows = db.execute(
-        select(VideoEmbedding, Video).join(Video, Video.id == VideoEmbedding.video_id)
-    ).all()
+    stmt = (
+        select(Chunk, Document)
+        .join(Document, Document.id == Chunk.document_id)
+        .where(Chunk.vector.isnot(None), Document.status == "ready")
+    )
+    if tenant_id is not None:
+        stmt = stmt.where(Chunk.tenant_id == tenant_id)
+    rows = db.execute(stmt).all()
     if not rows:
         return []
 
     qvec = embed_texts([query])[0]
-    scored = []
-    for emb, video in rows:
+    vec_scores: list[float] = []
+    for chunk, _doc in rows:
         try:
-            scored.append((video, _cos(qvec, _unpack(emb.vector))))
+            vec_scores.append(_cos(qvec, _unpack(chunk.vector)))
         except Exception:  # noqa: BLE001
-            continue
-    scored.sort(key=lambda t: t[1], reverse=True)
+            vec_scores.append(0.0)
+
+    # 混合检索：向量（语义）+ BM25（关键词），各自 min-max 归一后加权融合。
+    kw_scores = _bm25(query, [c.content for c, _d in rows])
+    vn = _minmax(vec_scores)
+    kn = _minmax(kw_scores)
+    _VEC_W, _KW_W = 0.55, 0.45
+
+    scored: list[tuple[Chunk, Document, float]] = []
+    for idx, (chunk, doc) in enumerate(rows):
+        final = _VEC_W * vn[idx] + _KW_W * kn[idx]
+        scored.append((chunk, doc, final))
+    scored.sort(key=lambda t: t[2], reverse=True)
     return scored[:top_k]
 
 
 # ---------------------------------------------------------------- 提示词
-def _system_prompt(db: Session, question: str, user: User | None) -> tuple[str, list[dict]]:
-    """返回 (system_prompt, sources)。"""
-    hits = search_videos(db, question)
+def _system_prompt(
+    db: Session, question: str, user: User | None, tenant_id: int | None
+) -> tuple[str, list[dict]]:
+    hits = search_chunks(db, question, tenant_id)
     if hits:
         lines = []
-        for i, (v, score) in enumerate(hits, 1):
-            owner = v.owner.username if v.owner else "未知"
-            desc = (v.description or "").strip() or "（无简介）"
+        for i, (chunk, doc, score) in enumerate(hits, 1):
+            snippet = chunk.content.strip().replace("\n", " ")
+            # 完整注入命中片段（块本身约 chunk_size，不再截断，避免后半段内容缺失）
             lines.append(
-                f"[{i}] id={v.id} 标题《{v.title}》 作者{owner} 相似度{score:.3f}\n    简介：{desc[:200]}"
+                f"[{i}] 文档《{doc.title}》 第{chunk.seq + 1}段 相似度{score:.3f}\n    {snippet}"
             )
         kb = "\n".join(lines)
     else:
-        kb = "（站内目前没有相关视频）"
+        kb = "（知识库中没有检索到相关内容）"
 
-    who = f"当前登录用户：{user.username}" if user else "当前为游客"
+    who = f"当前登录用户：{user.username}" if user else "当前为游客（未登录）"
     system = (
-        "你是「SurrealVideo 梦境视频站」的 AI 助手 Friday，说话简洁友好、可以带一点赛博朋克气质。\n"
-        "站点是一个极简版 B 站，用户可以上传视频、点赞、收藏、转发。\n"
+        "你是「SurrealKB 企业知识库」的 AI 助手 Friday，回答专业、简洁、可靠。\n"
+        "用户会基于自己企业知识库里的文档提问，你要严格依据下面的『检索片段』作答。\n"
         f"{who}\n\n"
-        "下面是本站检索到的相关视频（按相关度排序），请优先依据它们回答：\n"
-        f"{kb}\n\n"
-        "要求：\n"
-        "1. 如果用户问的是站内视频/找视频，就基于上面的清单回答，并自然地把视频标题带上；没有相关结果就直说没有。\n"
-        "2. 其他问题（闲聊、通用知识）正常回答即可，不要硬扯站内视频。\n"
-        "3. 回答用中文，控制在 200 字以内，不要输出 Markdown 表格。"
+        f"检索片段（来自本知识库，按相关度排序）：\n{kb}\n\n"
+        "回答要求：\n"
+        "1. 只依据上面的片段回答；片段不足以回答时，明确说「知识库中未找到相关信息」，不要编造。\n"
+        "2. 引用信息时在句末标注来源编号，如 [1]、[2]。\n"
+        "3. 用中文回答，条理清晰，控制在 300 字以内，不要输出 Markdown 表格。"
     )
     sources = [
-        {"id": v.id, "title": v.title, "score": round(s, 4), "owner": v.owner.username if v.owner else "未知"}
-        for v, s in hits
+        {
+            "document_id": doc.id,
+            "title": doc.title,
+            "score": round(score, 4),
+            "snippet": chunk.content.strip().replace("\n", " ")[:160],
+        }
+        for chunk, doc, score in hits
     ]
     return system, sources
 
@@ -216,7 +284,6 @@ def chat(
     user: User | None = None,
     history_limit: int = 6,
 ) -> dict:
-    """一问一答，并落库。"""
     if not ai_ready():
         raise RuntimeError("AI 未配置：请在 backend/.env 里填 DASHSCOPE_API_KEY")
 
@@ -230,7 +297,8 @@ def chat(
     )
     history.reverse()
 
-    system, sources = _system_prompt(db, question, user)
+    tenant_id = user.tenant_id if user else None
+    system, sources = _system_prompt(db, question, user, tenant_id)
     messages = [{"role": "system", "content": system}]
     messages += [{"role": m.role, "content": m.content} for m in history]
     messages.append({"role": "user", "content": question})
@@ -238,20 +306,36 @@ def chat(
     with _client() as c:
         resp = c.post(
             "/chat/completions",
-            json={"model": settings.ai_chat_model, "messages": messages, "temperature": 0.6},
+            json={"model": settings.ai_chat_model, "messages": messages, "temperature": 0.3},
         )
         resp.raise_for_status()
         answer = resp.json()["choices"][0]["message"]["content"].strip()
 
-    db.add(ChatMessage(session_key=session_key, user_id=user.id if user else None, role="user", content=question))
-    db.add(ChatMessage(session_key=session_key, user_id=user.id if user else None, role="assistant", content=answer))
+    db.add(
+        ChatMessage(
+            session_key=session_key,
+            user_id=user.id if user else None,
+            tenant_id=tenant_id,
+            role="user",
+            content=question,
+        )
+    )
+    db.add(
+        ChatMessage(
+            session_key=session_key,
+            user_id=user.id if user else None,
+            tenant_id=tenant_id,
+            role="assistant",
+            content=answer,
+        )
+    )
     db.commit()
 
     return {"answer": answer, "sources": sources, "session_key": session_key}
 
 
 def get_history(db: Session, session_key: str, limit: int = 50) -> list[ChatMessage]:
-    rows = list(
+    return list(
         db.scalars(
             select(ChatMessage)
             .where(ChatMessage.session_key == session_key)
@@ -259,7 +343,6 @@ def get_history(db: Session, session_key: str, limit: int = 50) -> list[ChatMess
             .limit(limit)
         )
     )
-    return rows
 
 
 def clear_history(db: Session, session_key: str) -> int:

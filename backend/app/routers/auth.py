@@ -12,7 +12,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,7 +21,7 @@ from .. import wechat_service
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import User
+from ..models import Tenant, User
 from ..schemas import (
     AvatarUpdate,
     Token,
@@ -37,6 +37,13 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 ALLOWED_AVATAR = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
+def _slugify(name: str) -> str:
+    import re
+
+    s = re.sub(r"[^a-zA-Z0-9]+", "-", name).strip("-").lower()
+    return s or "kb"
+
+
 def _ensure_unique(db: Session, username: str, email: str | None) -> None:
     if db.scalar(select(User).where(User.username == username)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "用户名已被注册")
@@ -44,14 +51,41 @@ def _ensure_unique(db: Session, username: str, email: str | None) -> None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "邮箱已被注册")
 
 
+def _resolve_tenant(db: Session, payload: UserCreate) -> tuple[int | None, str]:
+    """决定新用户归属的知识库：邀请码优先 > 创建新库 > 无。返回 (tenant_id, role)。"""
+    if payload.invite_code:
+        tenant = db.scalar(select(Tenant).where(Tenant.invite_code == payload.invite_code))
+        if not tenant:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "邀请码无效")
+        return tenant.id, "member"
+    if payload.tenant_name:
+        if not settings.allow_new_tenant:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "当前未开放创建知识库")
+        slug = _slugify(payload.tenant_name)[:48]
+        while db.scalar(select(Tenant).where(Tenant.slug == slug)):
+            slug = f"{_slugify(payload.tenant_name)[:44]}-{secrets.token_hex(2)}"
+        tenant = Tenant(
+            name=payload.tenant_name,
+            slug=slug,
+            invite_code=secrets.token_hex(4),
+        )
+        db.add(tenant)
+        db.flush()
+        return tenant.id, "owner"
+    return None, "member"
+
+
 @router.post("/register", response_model=Token)
 def register(payload: UserCreate, db: Session = Depends(get_db)) -> Token:
     _ensure_unique(db, payload.username, payload.email)
+    tenant_id, role = _resolve_tenant(db, payload)
     user = User(
         username=payload.username,
         email=payload.email,
         hashed_password=hash_password(payload.password),
         avatar=payload.avatar or None,
+        tenant_id=tenant_id,
+        role=role,
     )
     db.add(user)
     db.commit()

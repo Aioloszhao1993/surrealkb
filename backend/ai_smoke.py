@@ -1,7 +1,7 @@
 """AI 助手链路自测：直接打后端接口，验证 向量检索 + 多轮对话 + 历史落库。
 
 运行（后端已在 8000 运行）：
-    cd D:\\video_fastqpi\\backend
+    cd D:\\surreal_kb\\backend
     .\\.venv\\Scripts\\python.exe ai_smoke.py
 
 用的是终端直接打 127.0.0.1:8000，不经过 vite 代理。

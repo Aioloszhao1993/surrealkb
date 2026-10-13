@@ -15,6 +15,7 @@ export default function AccountMenu() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const [stats, setStats] = useState(null)
+  const [tenant, setTenant] = useState(null)
   const timer = useRef(null)
   const wrapRef = useRef(null)
 
@@ -23,6 +24,10 @@ export default function AccountMenu() {
       .get(`/users/${user.id}`)
       .then(({ data }) => setStats(data))
       .catch(() => setStats(null))
+    api
+      .get('/tenants/current')
+      .then(({ data }) => setTenant(data))
+      .catch(() => setTenant(null))
   }
 
   useEffect(() => {
@@ -79,22 +84,26 @@ export default function AccountMenu() {
               <b>{stats ? num(stats.followers) : '—'}</b> 粉丝
             </span>
             <span>
-              <b>{stats ? num(stats.works) : '—'}</b> 作品
-            </span>
-            <span>
-              <b>{stats ? num(stats.likes_received) : '—'}</b> 获赞
+              <b>{stats ? num(stats.documents) : '—'}</b> 文档
             </span>
           </div>
+
+          {tenant && (
+            <Link to="/team" className="account-tenant" onClick={() => setOpen(false)}>
+              <span className="account-tenant-label">知识库</span>
+              <span className="account-tenant-name">{tenant.name}</span>
+            </Link>
+          )}
 
           <div className="account-links">
             <Link to={`/user/${user.id}`} onClick={() => setOpen(false)}>
               <span>☾</span> 我的主页
             </Link>
-            <Link to="/favorites" onClick={() => setOpen(false)}>
-              <span>★</span> 我的收藏
-            </Link>
             <Link to="/upload" onClick={() => setOpen(false)}>
-              <span>⇪</span> 上传视频
+              <span>⇪</span> 上传文档
+            </Link>
+            <Link to="/team" onClick={() => setOpen(false)}>
+              <span>◈</span> 知识库团队
             </Link>
           </div>
 

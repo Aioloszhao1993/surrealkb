@@ -1,4 +1,7 @@
-"""Pydantic 请求/响应模型。"""
+"""Pydantic 请求/响应模型 -- 定义 API 的输入校验和输出形状。
+
+知识库版：用户 / 知识库(租户) / 文档 / 分块 / AI 问答。
+"""
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,8 +12,10 @@ class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=6, max_length=128)
     email: str | None = None
-    # 注册时可直接选一个预设头像（data URL，最长 2048）
     avatar: str | None = Field(default=None, max_length=2048)
+    # 注册时可选：创建自己的知识库（留空则只加入默认知识库）
+    tenant_name: str | None = Field(default=None, max_length=100)
+    invite_code: str | None = Field(default=None, max_length=16)
 
 
 class UserLogin(BaseModel):
@@ -34,7 +39,31 @@ class UserOut(BaseModel):
     username: str
     email: str | None = None
     avatar: str | None = None
+    bio: str | None = None
+    role: str = "member"
+    tenant_id: int | None = None
     created_at: datetime
+
+
+class TenantOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    slug: str
+    description: str | None = None
+    invite_code: str
+    created_at: datetime
+    member_count: int = 0
+    document_count: int = 0
+
+
+class TenantCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class TenantJoin(BaseModel):
+    invite_code: str = Field(min_length=4, max_length=16)
 
 
 class UserUpdate(BaseModel):
@@ -55,9 +84,7 @@ class UserProfile(BaseModel):
     user: UserPublic
     followers: int = 0
     following: int = 0
-    works: int = 0
-    likes_received: int = 0
-    total_views: int = 0
+    documents: int = 0
     is_self: bool = False
     is_following: bool = False
 
@@ -73,40 +100,40 @@ class Token(BaseModel):
     user: UserOut
 
 
-# ---------- 视频 ----------
-class VideoOut(BaseModel):
+# ---------- 文档 ----------
+class DocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     title: str
-    description: str | None = None
-    cover: str | None = None
+    original_name: str | None = None
+    doc_type: str = "txt"
     size: int = 0
-    views: int = 0
+    status: str = "pending"
+    error: str | None = None
+    chunk_count: int = 0
+    char_count: int = 0
+    tenant_id: int | None = None
+    owner_id: int | None = None
     created_at: datetime
-    owner: UserPublic
-    likes: int = 0
-    favorites: int = 0
-    shares: int = 0
-    liked: bool = False
-    favorited: bool = False
-    url: str = ""
+    owner: UserPublic | None = None
 
 
-class VideoUpdate(BaseModel):
+class DocumentUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
-    description: str | None = None
 
 
-class PageOut(BaseModel):
-    items: list[VideoOut]
+class DocumentPage(BaseModel):
+    items: list[DocumentOut]
     total: int
     page: int
     page_size: int
 
 
-class ActionOut(BaseModel):
-    active: bool
-    count: int
+class ChunkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    seq: int
+    content: str
 
 
 # ---------- AI 问答 ----------
@@ -116,10 +143,10 @@ class ChatIn(BaseModel):
 
 
 class SourceOut(BaseModel):
-    id: int
+    document_id: int
     title: str
     score: float
-    owner: str = ""
+    snippet: str = ""
 
 
 class ChatOut(BaseModel):

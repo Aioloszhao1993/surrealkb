@@ -20,7 +20,7 @@ export default function Navbar() {
       <Link to="/" className="brand">
         <span className="brand-mark">◈</span>
         <span className="brand-text">
-          Surreal<span className="accent">Video</span>
+          Surreal<span className="accent">KB</span>
         </span>
       </Link>
 
@@ -28,7 +28,7 @@ export default function Navbar() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="搜索梦境中的视频…"
+          placeholder="搜索知识库里的文档…"
           aria-label="搜索"
         />
         <button type="submit">搜索</button>
@@ -38,10 +38,10 @@ export default function Navbar() {
         {user ? (
           <>
             <Link to="/upload" className="btn ghost">
-              上传
+              上传文档
             </Link>
-            <Link to="/favorites" className="btn ghost">
-              收藏
+            <Link to="/team" className="btn ghost">
+              知识库
             </Link>
             <AccountMenu />
           </>
@@ -54,15 +54,13 @@ export default function Navbar() {
               登录
             </Link>
             <Link to="/register" className="btn primary">
-              加入梦境
+              免费使用
             </Link>
           </>
         )}
       </nav>
 
-      {showWx && (
-        <WechatLogin onClose={() => setShowWx(false)} onDone={() => nav('/')} />
-      )}
+      {showWx && <WechatLogin onClose={() => setShowWx(false)} onDone={() => nav('/')} />}
     </header>
   )
 }

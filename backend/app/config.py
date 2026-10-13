@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         env_file=str(BASE_DIR / ".env"), env_file_encoding="utf-8", extra="ignore"
     )
 
-    app_name: str = "SurrealVideo"
+    app_name: str = "SurrealKB"
     secret_key: str = "change-me"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -28,8 +28,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     upload_dir: str = "uploads"
-    max_video_mb: int = 1024
     max_avatar_mb: int = 5
+
+    # ---------- 知识库文档 ----------
+    max_doc_mb: int = 50                      # 单个文档最大体积（MB）
+    chunk_size: int = 800                     # 分块目标字符数
+    chunk_overlap: int = 120                  # 相邻分块重叠字符数
+    allow_new_tenant: bool = True             # 是否允许注册时自动创建新知识库
 
     # ---------- 微信扫码登录（微信开放平台「网站应用」）----------
     # 留空则自动进入本地 Mock 模式（无需真实公众号即可演示）
@@ -45,7 +50,7 @@ class Settings(BaseSettings):
     ai_chat_model: str = "qwen-plus"
     ai_embed_model: str = "text-embedding-v3"
     ai_embed_dim: int = 1024
-    ai_top_k: int = 3
+    ai_top_k: int = 4
 
     @property
     def ai_enabled(self) -> bool:

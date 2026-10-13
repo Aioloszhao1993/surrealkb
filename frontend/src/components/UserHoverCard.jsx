@@ -114,10 +114,7 @@ export default function HoverUser({ user, children, place = 'right' }) {
                   <b>{num(profile.following)}</b> 关注
                 </span>
                 <span>
-                  <b>{num(profile.works)}</b> 作品
-                </span>
-                <span>
-                  <b>{num(profile.likes_received)}</b> 获赞
+                  <b>{num(profile.documents)}</b> 文档
                 </span>
               </div>
               <div className="hover-card-actions">

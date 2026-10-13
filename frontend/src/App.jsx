@@ -2,12 +2,12 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Background from './components/Background'
 import Home from './pages/Home'
-import Watch from './pages/Watch'
+import DocDetail from './pages/DocDetail'
 import Upload from './pages/Upload'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Profile from './pages/Profile'
-import Favorites from './pages/Favorites'
+import Team from './pages/Team'
 import AiChat from './components/AiChat'
 import { useAuth } from './store'
 
@@ -27,7 +27,7 @@ export default function App() {
       <main className="container">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/watch/:id" element={<Watch />} />
+          <Route path="/doc/:id" element={<DocDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/user/:id" element={<Profile />} />
@@ -40,20 +40,20 @@ export default function App() {
             }
           />
           <Route
-            path="/favorites"
+            path="/team"
             element={
               <RequireAuth>
-                <Favorites />
+                <Team />
               </RequireAuth>
             }
           />
-          <Route path="*" element={<div className="empty">404 · 这一帧不存在于现实</div>} />
+          <Route path="*" element={<div className="empty">404 · 这一页不存在于现实</div>} />
         </Routes>
       </main>
       <AiChat />
       <footer className="footer">
-        <span>SurrealVideo · 梦境视频站</span>
-        <span className="faint">FastAPI × React × MySQL</span>
+        <span>SurrealKB · 企业知识库问答</span>
+        <span className="faint">FastAPI × React × MySQL × 百炼</span>
       </footer>
     </div>
   )

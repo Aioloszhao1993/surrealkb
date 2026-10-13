@@ -1,24 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import api, { errMsg } from '../api'
-import VideoCard from '../components/VideoCard'
+import api from '../api'
+import DocCard from '../components/DocCard'
 import Avatar from '../components/Avatar'
 import AvatarPicker from '../components/AvatarPicker'
 import EditProfile from '../components/EditProfile'
 import { num } from '../components/format'
 import { useAuth } from '../store'
 
-const TABS = [
-  { key: 'videos', label: '作品' },
-  { key: 'likes', label: '点赞' },
-  { key: 'favorites', label: '收藏' },
-]
-
 export default function Profile() {
   const { id } = useParams()
   const { user: me } = useAuth()
   const [profile, setProfile] = useState(null)
-  const [tab, setTab] = useState('videos')
   const [data, setData] = useState({ items: [], total: 0 })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -35,26 +28,22 @@ export default function Profile() {
     }
   }, [id])
 
-  const loadTab = useCallback(
-    async (key) => {
-      setLoading(true)
-      try {
-        const { data } = await api.get(`/users/${id}/${key}`, { params: { page_size: 60 } })
-        setData(data)
-      } finally {
-        setLoading(false)
-      }
-    },
-    [id]
-  )
+  const loadDocs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/documents', { params: { owner_id: id, page_size: 60 } })
+      setData(data)
+    } catch {
+      setData({ items: [], total: 0 })
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
 
   useEffect(() => {
     loadProfile()
-  }, [loadProfile])
-
-  useEffect(() => {
-    loadTab(tab)
-  }, [loadTab, tab])
+    loadDocs()
+  }, [loadProfile, loadDocs])
 
   const toggleFollow = async () => {
     if (!me) return
@@ -62,8 +51,8 @@ export default function Profile() {
     try {
       const { data } = await api.post(`/users/${id}/follow`)
       setProfile((p) => ({ ...p, is_following: data.following, followers: data.followers }))
-    } catch (e) {
-      // ignore
+    } catch {
+      /* ignore */
     } finally {
       setFollowBusy(false)
     }
@@ -98,13 +87,7 @@ export default function Profile() {
               <b>{num(profile.following)}</b> 关注
             </span>
             <span>
-              <b>{num(profile.works)}</b> 作品
-            </span>
-            <span>
-              <b>{num(profile.likes_received)}</b> 获赞
-            </span>
-            <span>
-              <b>{num(profile.total_views)}</b> 播放
+              <b>{num(profile.documents)}</b> 文档
             </span>
           </div>
         </div>
@@ -127,28 +110,15 @@ export default function Profile() {
         </div>
       </section>
 
-      <div className="tabs profile-tabs">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={tab === t.key ? 'tab active' : 'tab'}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
+      <h2 className="section-title">上传的文档（{data.total}）</h2>
       {loading ? (
         <div className="page-loading">加载中…</div>
       ) : data.items.length === 0 ? (
-        <div className="empty">
-          {tab === 'videos' ? '这位创作者还没有公开任何梦境。' : '这里还空空如也。'}
-        </div>
+        <div className="empty">这位成员还没有上传任何文档。</div>
       ) : (
         <div className="grid">
-          {data.items.map((v) => (
-            <VideoCard key={v.id} video={v} />
+          {data.items.map((d) => (
+            <DocCard key={d.id} doc={d} />
           ))}
         </div>
       )}

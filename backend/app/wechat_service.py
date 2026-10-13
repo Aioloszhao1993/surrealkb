@@ -178,7 +178,24 @@ def login_or_create_user(
     while db.scalar(select(User).where(User.username == candidate)):
         candidate = f"{name}_{_random_suffix()}"
 
-    user = User(username=candidate, wechat_openid=openid, hashed_password="!wx-no-password!")
+    # 每个微信新用户自动开一个个人知识库（owner）
+    from .models import Tenant
+
+    tenant = Tenant(
+        name=f"{candidate} 的知识库",
+        slug=f"wx-{secrets.token_hex(4)}",
+        invite_code=secrets.token_hex(4),
+    )
+    db.add(tenant)
+    db.flush()
+
+    user = User(
+        username=candidate,
+        wechat_openid=openid,
+        hashed_password="!wx-no-password!",
+        tenant_id=tenant.id,
+        role="owner",
+    )
     if avatar_bytes:
         _save_avatar_bytes(db, user, avatar_bytes)
     db.add(user)

@@ -1,20 +1,12 @@
-"""用户：资料页 / 关注 / 作品 / 点赞过的视频。"""
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+"""用户：资料更新 / 资料页 / 关注。"""
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user, get_current_user_optional
-from ..models import Favorite, Follow, Like, User, Video
-from ..schemas import (
-    FollowOut,
-    PageOut,
-    UserOut,
-    UserProfile,
-    UserPublic,
-    UserUpdate,
-)
-from ..services import serialize_video
+from ..models import Document, Follow, User
+from ..schemas import FollowOut, UserOut, UserProfile, UserPublic, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -64,14 +56,9 @@ def get_profile(
     following = _count(
         db, select(func.count()).select_from(Follow).where(Follow.follower_id == user_id)
     )
-    works = _count(db, select(func.count()).select_from(Video).where(Video.owner_id == user_id))
-    likes_received = _count(
-        db, select(func.count()).select_from(Like).join(Video, Like.video_id == Video.id)
-        .where(Video.owner_id == user_id)
+    docs = _count(
+        db, select(func.count()).select_from(Document).where(Document.owner_id == user_id)
     )
-    total_views = db.scalar(
-        select(func.coalesce(func.sum(Video.views), 0)).where(Video.owner_id == user_id)
-    ) or 0
     is_following = False
     if me:
         is_following = bool(
@@ -83,9 +70,7 @@ def get_profile(
         user=UserPublic.model_validate(user),
         followers=followers,
         following=following,
-        works=works,
-        likes_received=likes_received,
-        total_views=total_views,
+        documents=docs,
         is_self=bool(me and me.id == user_id),
         is_following=is_following,
     )
@@ -112,84 +97,3 @@ def toggle_follow(
         db, select(func.count()).select_from(Follow).where(Follow.followee_id == user_id)
     )
     return FollowOut(following=following, followers=followers)
-
-
-@router.get("/{user_id}/videos", response_model=PageOut)
-def user_videos(
-    user_id: int,
-    db: Session = Depends(get_db),
-    me: User | None = Depends(get_current_user_optional),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(12, ge=1, le=60),
-) -> PageOut:
-    _get_user_or_404(db, user_id)
-    total = _count(
-        db, select(func.count()).select_from(Video).where(Video.owner_id == user_id)
-    )
-    rows = db.scalars(
-        select(Video)
-        .where(Video.owner_id == user_id)
-        .order_by(Video.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    ).all()
-    return PageOut(
-        items=[serialize_video(db, v, me) for v in rows],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
-
-
-@router.get("/{user_id}/likes", response_model=PageOut)
-def user_liked_videos(
-    user_id: int,
-    db: Session = Depends(get_db),
-    me: User | None = Depends(get_current_user_optional),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(12, ge=1, le=60),
-) -> PageOut:
-    _get_user_or_404(db, user_id)
-    total = _count(db, select(func.count()).select_from(Like).where(Like.user_id == user_id))
-    rows = db.scalars(
-        select(Video)
-        .join(Like, Like.video_id == Video.id)
-        .where(Like.user_id == user_id)
-        .order_by(Like.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    ).all()
-    return PageOut(
-        items=[serialize_video(db, v, me) for v in rows],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
-
-
-@router.get("/{user_id}/favorites", response_model=PageOut)
-def user_favorite_videos(
-    user_id: int,
-    db: Session = Depends(get_db),
-    me: User | None = Depends(get_current_user_optional),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(12, ge=1, le=60),
-) -> PageOut:
-    _get_user_or_404(db, user_id)
-    total = _count(
-        db, select(func.count()).select_from(Favorite).where(Favorite.user_id == user_id)
-    )
-    rows = db.scalars(
-        select(Video)
-        .join(Favorite, Favorite.video_id == Video.id)
-        .where(Favorite.user_id == user_id)
-        .order_by(Favorite.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    ).all()
-    return PageOut(
-        items=[serialize_video(db, v, me) for v in rows],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
