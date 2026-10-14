@@ -8,3 +8,4 @@
 @import './02-account.css';     /* 资料卡 / 关注 / 微信登录 / 账号菜单 / 注册头像 */
 @import './03-knowledge.css';   /* 文档卡片 / 详情 / 分块 / 标签页 / 团队页 */
 @import './04-editor.css';      /* 在线编辑 / 富文本编辑器 / 版本列表 / 下载菜单 */
+@import './05-mobile.css';      /* 移动端适配（小屏断点 / 触控优化 / iOS 修正） */
