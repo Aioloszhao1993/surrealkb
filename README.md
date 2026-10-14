@@ -13,7 +13,7 @@
 - 视觉：超现实霓虹风（纯手写 CSS，无 UI 框架）
 - 存储：本地 `backend/uploads`，通过 `/media/*` 静态服务
 
-> 本项目的应用名是 **SurrealKB**，目录名 `surreal_kb`，数据库名 `video_fastqpi`（沿用建库时的名字，未改动以免动数据）。
+> 本项目的应用名是 **SurrealKB**，目录名 `surreal_kb`，数据库名 `surrealkb`。
 
 ---
 
@@ -77,12 +77,12 @@ cd D:\surreal_kb
 已自动完成：
 - 解压至 `D:\surreal_kb\mysql\mysql-8.0.28-winx64`
 - 数据目录 `D:\surreal_kb\mysql_data`（已初始化）
-- 建库 `video_fastqpi`（utf8mb4，库名沿用早期，不影响使用）
+- 建库 `surrealkb`（utf8mb4）
 - 专用账号：`sv_user` / 密码见 `backend/.env` 的 `DB_PASSWORD`（已授予该库全部权限）
 
 ### 进入数据库（命令行）
 
-**双击即用**：直接**双击** `D:\surreal_kb\mysql-cli.bat` —— 它会先检查 MySQL 有没有在跑（没跑就自动拉起），然后用 `sv_user` 进入 `video_fastqpi` 库。
+**双击即用**：直接**双击** `D:\surreal_kb\mysql-cli.bat` —— 它会先检查 MySQL 有没有在跑（没跑就自动拉起），然后用 `sv_user` 进入 `surrealkb` 库。
 
 也可以在终端里：
 
@@ -106,7 +106,7 @@ exit;                           -- 退出（或按 Ctrl+C）
 手动进入（不用脚本）——绿色版 MySQL 没注册成服务，所以要用**绝对路径**调客户端：
 
 ```powershell
-& "D:\surreal_kb\mysql\mysql-8.0.28-winx64\bin\mysql.exe" -u sv_user -p -D video_fastqpi
+& "D:\surreal_kb\mysql\mysql-8.0.28-winx64\bin\mysql.exe" -u sv_user -p -D surrealkb
 # 回车后按提示输入密码（即 backend/.env 里的 DB_PASSWORD）
 ```
 
@@ -116,7 +116,7 @@ exit;                           -- 退出（或按 Ctrl+C）
 
 ### 用图形化工具（Navicat / DBeaver / HeidiSQL / MySQL Workbench）
 
-新建连接，填：主机 `127.0.0.1`、端口 `3306`、用户 `sv_user`、密码见 `backend/.env` 的 `DB_PASSWORD`、库 `video_fastqpi`。
+新建连接，填：主机 `127.0.0.1`、端口 `3306`、用户 `sv_user`、密码见 `backend/.env` 的 `DB_PASSWORD`、库 `surrealkb`。
 
 ### 库中的表
 
@@ -135,7 +135,7 @@ exit;                           -- 退出（或按 Ctrl+C）
 ### 方式 B：使用你自己的 MySQL
 
 ```sql
-CREATE DATABASE video_fastqpi DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE surrealkb DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 然后修改 `backend/.env` 里的 `DB_HOST / DB_PORT / DB_USER / DB_PASSWORD` 即可。

@@ -1,0 +1,30 @@
+# 依赖 / 构建产物
+**/__pycache__/
+**/*.py[cod]
+backend/.venv/
+frontend/node_modules/
+frontend/dist/
+
+# 密钥与本地配置
+backend/.env
+backend/.env.*
+
+# 运行期数据
+backend/uploads/
+backend/logs/
+mysql/
+mysql_data/
+
+# 本机脚本 / 临时
+*.bat
+*.ps1
+*.cmd
+_*.py
+backend/_*.py
+*.log
+*.zip
+
+# 编辑器
+.vscode/
+.idea/
+.git/

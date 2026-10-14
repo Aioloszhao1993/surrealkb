@@ -172,7 +172,7 @@ cd D:\surreal_kb\backend
 
 - `README` / 旧注释里偶有「视频」「Video」字样；`index.html` 的 `<title>` 尚未更新。
 - `routers/auth.py` 里 Mock 授权页文案仍是旧站名。
-- 库名 `video_fastqpi`、部分脚本名沿用旧路径（已改新路径）。
+- 库名 `surrealkb`、部分脚本名沿用旧路径（已改新路径）。
 - 旧的 `videos / likes / favorites / video_embeddings` 表已从 `models.py` 移除，代码不再引用。
 
 **一句话看懂新版**：文档丢进来 → 提取文本、切成语义分块 → 每块算 1024 维向量存 BLOB →

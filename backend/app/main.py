@@ -4,15 +4,22 @@
 """
 from contextlib import asynccontextmanager
 import threading
+import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from .config import settings
 from .database import Base, engine, SessionLocal
+from .log import get_logger, setup_logging
 from .ratelimit import rate_limit_middleware
 from .routers import ai, auth, documents, tenants, users
+
+setup_logging("DEBUG" if settings.debug else "INFO")
+log = get_logger("app")
 
 # 静态目录必须在挂载前存在（StaticFiles 在实例化时即校验路径）
 settings.upload_path.mkdir(parents=True, exist_ok=True)
@@ -24,6 +31,7 @@ settings.upload_path.mkdir(parents=True, exist_ok=True)
 async def lifespan(app: FastAPI):
     # 首次启动自动建表（生产建议改用 Alembic 迁移）
     Base.metadata.create_all(bind=engine)
+    log.info("startup: app=%s debug=%s ai=%s", settings.app_name, settings.debug, settings.ai_enabled)
     # 启动时后台补齐分块向量索引（失败不影响服务启动）
     if settings.ai_enabled:
         def _warm():
@@ -31,13 +39,14 @@ async def lifespan(app: FastAPI):
             db = SessionLocal()
             try:
                 info = refresh_embeddings(db)
-                print(f"[AI] embedding index ready: {info}")
+                log.info("embedding index ready: %s", info)
             except Exception as exc:  # noqa: BLE001
-                print(f"[AI] embedding warmup skipped: {exc}")
+                log.warning("embedding warmup skipped: %s", exc)
             finally:
                 db.close()
         threading.Thread(target=_warm, daemon=True).start()
     yield
+    log.info("shutdown")
 
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
@@ -69,5 +78,25 @@ app.mount("/media", StaticFiles(directory=str(settings.upload_path)), name="medi
 
 
 @app.get("/api/health", tags=["system"])
-def health() -> dict[str, str]:
-    return {"status": "ok", "app": settings.app_name}
+def health() -> JSONResponse:
+    """探活 + 数据库连通性。
+
+    正常返回 200 {"status":"ok"}；DB 不通返回 503 {"status":"degraded"}，
+    便于负载均衡 / 容器编排做健康检查。
+    """
+    db_ok = True
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001
+        db_ok = False
+        log.error("health: database unreachable: %s", exc)
+    body = {
+        "status": "ok" if db_ok else "degraded",
+        "app": settings.app_name,
+        "version": app.version,
+        "database": "up" if db_ok else "down",
+        "ai": "on" if settings.ai_enabled else "off",
+        "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    return JSONResponse(body, status_code=200 if db_ok else 503)

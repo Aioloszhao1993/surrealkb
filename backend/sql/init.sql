@@ -1,10 +1,10 @@
 -- SurrealKB 数据库初始化
 -- 若不需要自动建表，可手动执行本脚本
-CREATE DATABASE IF NOT EXISTS `video_fastqpi`
+CREATE DATABASE IF NOT EXISTS `surrealkb`
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_unicode_ci;
 
-USE `video_fastqpi`;
+USE `surrealkb`;
 
 -- 表结构由 SQLAlchemy 在应用启动时自动创建（Base.metadata.create_all）。
 -- 如需手工建表，请启动一次后端后导出，或参照 app/models.py。

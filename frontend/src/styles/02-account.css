@@ -1,0 +1,182 @@
+/* ==================== 头像 / 资料 / 关注 / 微信登录 ==================== */
+
+/* 悬停资料卡 */
+.hover-user { position: relative; display: inline-flex; }
+.hover-card {
+  position: fixed; z-index: 120; width: 300px; padding: 16px;
+  border-radius: 16px; background: rgba(14, 9, 32, 0.96);
+  border: 1px solid rgba(155, 89, 255, 0.4); backdrop-filter: blur(18px);
+  box-shadow: 0 22px 60px -12px rgba(0, 0, 0, 0.75), 0 0 40px -12px rgba(155, 89, 255, 0.5);
+  animation: hoverpop 0.16s ease-out;
+}
+@keyframes hoverpop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.hover-card-top { display: flex; gap: 12px; align-items: flex-start; }
+.hover-card-id { min-width: 0; }
+.hover-name { font-weight: 800; font-size: 15.5px; color: var(--txt); text-decoration: none; display: block; }
+.hover-name:hover { color: var(--neon-2); }
+.hover-bio { margin: 5px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--txt-dim);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hover-stats { display: flex; gap: 14px; margin: 13px 0; font-size: 12px; color: var(--faint); flex-wrap: wrap; }
+.hover-stats b { color: var(--txt); font-size: 14px; margin-right: 2px; }
+.hover-card-actions { display: flex; gap: 8px; }
+.hover-card-actions .btn { padding: 8px 12px; font-size: 13px; }
+.hover-loading { display: grid; place-items: center; gap: 8px; padding: 10px; }
+
+/* 资料页 */
+.profile-head { display: flex; align-items: center; gap: 22px; padding: 26px; margin-bottom: 20px;
+  border-radius: var(--radius); background: var(--panel); border: 1px solid var(--panel-brd); backdrop-filter: blur(12px); flex-wrap: wrap; }
+.profile-avatar-wrap { position: relative; display: inline-flex; border-radius: 50%; }
+.profile-avatar-wrap.editable { cursor: pointer; }
+.profile-avatar-wrap.editable .avatar { transition: filter 0.2s; }
+.profile-avatar-wrap.editable:hover .avatar { filter: brightness(0.62); }
+.avatar-edit-badge {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%;
+  font-size: 12px; font-weight: 700; color: #fff; opacity: 0; transition: opacity 0.2s;
+  background: rgba(10, 6, 22, 0.35);
+}
+.profile-avatar-wrap.editable:hover .avatar-edit-badge { opacity: 1; }
+.profile-info { flex: 1; min-width: 220px; }
+.profile-name { margin: 0 0 6px; font-size: 26px; }
+.profile-bio { margin: 0 0 12px; color: var(--txt-dim); font-size: 14px; }
+.profile-stats { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--faint); }
+.profile-stats b { display: block; font-size: 19px; color: var(--txt); font-weight: 800; }
+.profile-actions { display: flex; gap: 10px; }
+.profile-tabs { justify-content: flex-start; margin-bottom: 20px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--panel-brd); margin: 4px 0 18px; }
+.tab {
+  padding: 9px 16px; background: none; border: none; color: var(--txt-dim); font-size: 14px;
+  font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: 0.15s;
+}
+.tab:hover { color: var(--txt); }
+.tab.active { color: var(--neon-2); border-bottom-color: var(--neon-2); }
+
+/* 弹窗 */
+.modal-back {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 18px;
+  background: rgba(4, 2, 12, 0.7); backdrop-filter: blur(7px); animation: fadein 0.18s ease;
+}
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.wx-modal, .avatar-modal {
+  position: relative; width: 100%; max-width: 372px; padding: 26px 24px;
+  border-radius: 22px; background: linear-gradient(180deg, rgba(24, 16, 48, 0.98), rgba(12, 8, 28, 0.98));
+  border: 1px solid rgba(155, 89, 255, 0.42); box-shadow: 0 30px 80px -14px rgba(0, 0, 0, 0.8), 0 0 60px -18px rgba(155, 89, 255, 0.55);
+  animation: modpop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes modpop { from { opacity: 0; transform: scale(0.94) translateY(8px); } to { opacity: 1; transform: none; } }
+.modal-x {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--panel-brd); background: rgba(255, 255, 255, 0.05); color: var(--txt-dim);
+  font-size: 13px; cursor: pointer; display: grid; place-items: center;
+}
+.modal-x:hover { color: #fff; border-color: var(--neon-1); }
+.wx-title { margin: 0 0 6px; font-size: 19px; text-align: center; }
+.wx-sub { margin: 0 0 18px; font-size: 13px; color: var(--txt-dim); text-align: center; }
+
+.wx-qr-wrap { position: relative; width: 216px; height: 216px; margin: 0 auto; border-radius: 16px; overflow: hidden;
+  background: #fff; display: grid; place-items: center; border: 1px solid rgba(155, 89, 255, 0.3); }
+.wx-qr { width: 100%; height: 100%; object-fit: contain; display: block; }
+.wx-qr.loading { background: rgba(255, 255, 255, 0.06); color: var(--txt-dim); font-size: 13px; width: 100%; height: 100%; display: grid; place-items: center; }
+.wx-mask { position: absolute; inset: 0; display: grid; place-items: center; gap: 10px; text-align: center;
+  background: rgba(8, 5, 20, 0.86); color: var(--txt); padding: 18px; }
+.wx-mask.ok { background: rgba(6, 24, 18, 0.9); }
+.wx-mask.ok span { font-size: 46px; color: #34ffab; }
+
+.wx-tip { margin: 16px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--txt-dim); text-align: center; }
+.wx-tip.mock { text-align: left; padding: 11px 13px; border-radius: 12px;
+  background: rgba(34, 211, 238, 0.09); border: 1px solid rgba(34, 211, 238, 0.28); }
+.wx-tip.mock b { display: block; color: var(--neon-2); margin-bottom: 4px; }
+.wx-tip.mock a { color: var(--neon-3); }
+.wx-actions { display: flex; gap: 10px; margin-top: 16px; }
+.wx-actions .btn { flex: 1; justify-content: center; }
+
+.divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--faint); font-size: 12px; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--panel-brd); }
+.btn.wechat { width: 100%; justify-content: center; background: #07c160; border: none; color: #fff; font-weight: 700; }
+.btn.wechat:hover { background: #06ad56; }
+.wx-logo { font-size: 15px; }
+
+/* 头像选择 */
+.preset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 6px 0 4px; }
+.preset {
+  aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+  font-size: 26px; color: #fff; display: grid; place-items: center; padding: 0;
+  transition: transform 0.16s, border-color 0.16s; box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.6);
+}
+.preset:hover { transform: translateY(-3px) scale(1.05); }
+.preset.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(155, 89, 255, 0.5), 0 6px 18px -4px #000; }
+.upload-zone { display: grid; gap: 12px; justify-items: center; text-align: center; }
+.upload-preview { width: 96px; height: 96px; }
+.upload-preview img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; }
+.upload-zone input[type='file'] { font-size: 12.5px; color: var(--txt-dim); max-width: 100%; }
+.upload-zone .faint { font-size: 12px; margin: 0; }
+.edit-row { display: flex; gap: 16px; align-items: flex-start; }
+.edit-fields { flex: 1; display: grid; gap: 12px; }
+
+@media (max-width: 620px) {
+  .profile-head { flex-direction: column; align-items: flex-start; }
+  .hover-card { width: min(300px, 92vw); }
+}
+
+/* ==================== 账号头像菜单（B 站式） ==================== */
+.account { position: relative; display: inline-flex; align-items: center; }
+.account-trigger {
+  padding: 3px; border: none; background: none; cursor: pointer; border-radius: 50%;
+  display: grid; place-items: center; transition: transform 0.18s ease;
+}
+.account-trigger .avatar { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.account-trigger:hover .avatar,
+.account-trigger.open .avatar {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 0 26px rgba(155, 89, 255, 0.7);
+}
+.account-trigger:hover { transform: translateY(-1px); }
+
+.account-card {
+  position: absolute; top: calc(100% + 14px); right: 0; z-index: 130; width: 300px; padding: 18px;
+  border-radius: 18px; background: rgba(14, 9, 32, 0.97); border: 1px solid rgba(155, 89, 255, 0.42);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 64px -14px rgba(0, 0, 0, 0.8), 0 0 46px -14px rgba(155, 89, 255, 0.55);
+  animation: hoverpop 0.16s ease-out;
+}
+.account-card::before {
+  content: ''; position: absolute; top: -7px; right: 14px; width: 12px; height: 12px;
+  transform: rotate(45deg); background: rgba(14, 9, 32, 0.97);
+  border-left: 1px solid rgba(155, 89, 255, 0.42); border-top: 1px solid rgba(155, 89, 255, 0.42);
+}
+.account-head { display: flex; gap: 13px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--panel-brd); }
+.account-id { min-width: 0; flex: 1; }
+.account-name { display: block; font-weight: 800; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-bio { margin: 5px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--txt-dim);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.account-stats { display: flex; gap: 14px; flex-wrap: wrap; margin: 13px 0; font-size: 12px; color: var(--faint); }
+.account-stats b { color: var(--txt); font-size: 14.5px; margin-right: 3px; }
+.account-links { display: grid; gap: 4px; padding: 6px 0 12px; border-top: 1px solid var(--panel-brd); }
+.account-links a {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+  color: var(--txt-dim); text-decoration: none; font-size: 13.5px; transition: 0.15s;
+}
+.account-links a span { width: 18px; text-align: center; color: var(--neon-2); }
+.account-links a:hover { background: rgba(155, 89, 255, 0.14); color: var(--txt); }
+.account-logout {
+  width: 100%; padding: 10px; border-radius: 11px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+  color: #ff9bb8; background: rgba(255, 90, 140, 0.1); border: 1px solid rgba(255, 90, 140, 0.32); transition: 0.15s;
+}
+.account-logout:hover { background: rgba(255, 90, 140, 0.2); color: #fff; }
+
+/* ==================== 注册页头像选择 ==================== */
+.preset-picker { display: grid; gap: 12px; margin-bottom: 4px; }
+.preset-picker-preview { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035); border: 1px solid var(--panel-brd); }
+.preset-picker-hint { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.preset-picker-hint b { font-size: 13.5px; }
+.preset-picker-hint .faint { font-size: 11.5px; line-height: 1.5; }
+.btn.tiny { padding: 6px 10px; font-size: 12px; }
+.preset-grid.small { gap: 9px; }
+.preset-grid.small .preset { font-size: 20px; }
+
+@media (max-width: 620px) {
+  .account-card { width: min(300px, 86vw); right: -6px; }
+}
+

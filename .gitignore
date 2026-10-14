@@ -46,6 +46,7 @@ _*.py
 backend/_*.py
 
 # ---------- 日志 / 压缩包 / 备份 / 临时文件 ----------
+backend/logs/
 *.log
 *.err
 *.out

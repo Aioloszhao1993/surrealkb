@@ -1,0 +1,56 @@
+# SurrealKB 一键编排：MySQL + 后端(FastAPI) + 前端(nginx)
+# 用法：
+#   1) 在项目根目录新建 .env（参考 backend/.env.example），至少设置 SECRET_KEY、MYSQL_PASSWORD
+#   2) docker compose up -d --build
+#   3) 打开 http://localhost
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-surrealkb}
+      MYSQL_USER: ${DB_USER:-sv_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-sv_pass_2026}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: ${DB_USER:-sv_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-sv_pass_2026}
+      DB_NAME: ${DB_NAME:-surrealkb}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY 必须设置（见 backend/.env.example）}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      ENABLE_VIRTUAL_LOGIN: "false"
+      ENABLE_WECHAT_MOCK: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    # 先跑迁移（基线+增量），再启动服务
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  uploads:

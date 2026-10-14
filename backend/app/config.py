@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "SurrealKB"
+    # 调试模式：true 时日志更详细（勿在生产开启）
+    debug: bool = False
     # 必须显式设置（backend/.env 的 SECRET_KEY）。留空/过弱将拒绝启动，避免 JWT 被伪造。
     secret_key: str = ""
     # 仅本地临时调试可设 true 放行弱密钥（会打印醒目警告）。生产务必保持 false。
@@ -31,7 +33,7 @@ class Settings(BaseSettings):
     db_port: int = 3306
     db_user: str = "root"
     db_password: str = ""
-    db_name: str = "video_fastqpi"
+    db_name: str = "surrealkb"
     # 可选：直接指定完整连接串（留空则用上面的 MySQL 参数拼接）
     database_url_override: str = ""
 
