@@ -46,6 +46,31 @@ DOC_MIME = {
 }
 
 
+def _parse_tags(raw: str | None) -> list[str]:
+    """"a,b, c" -> ["a","b","c"]（去空、去重、每个 ≤24 字、最多 10 个）。"""
+    if not raw:
+        return []
+    out: list[str] = []
+    for part in raw.replace("，", ",").split(","):
+        t = part.strip()[:24]
+        if t and t not in out:
+            out.append(t)
+        if len(out) >= 10:
+            break
+    return out
+
+
+def _dump_tags(tags: list[str] | None) -> str:
+    return ",".join(_parse_tags(",".join(tags or [])))
+
+
+def _doc_out(doc: Document) -> DocumentOut:
+    """把 ORM 文档序列化为 DocumentOut（tags 字段由逗号字符串拆分为列表）。"""
+    out = DocumentOut.model_validate(doc)
+    out.tags = _parse_tags(doc.tags)
+    return out
+
+
 def _require_tenant(user: User) -> int:
     if not user.tenant_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "你还没有加入任何知识库")
@@ -93,6 +118,7 @@ def _trash(path: Path) -> None:
 @router.post("", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
 def upload_document(
     title: str | None = Form(None, max_length=200),
+    tags: str | None = Form(None, max_length=200),
     file: UploadFile = File(...),
     overwrite: bool = Form(False),
     db: Session = Depends(get_db),
@@ -100,6 +126,7 @@ def upload_document(
 ) -> DocumentOut:
     tenant_id = _require_tenant(user)
     new_title = (title or Path(file.filename or "未命名").stem)[:200]
+    tag_list = _parse_tags(tags)
 
     ext = Path(file.filename or "").suffix.lower()
     if ext not in doc_service.SUPPORTED_EXTS:
@@ -164,6 +191,7 @@ def upload_document(
         doc_type=doc_service.ext_to_doc_type(ext),
         size=size,
         status="pending",
+        tags=",".join(tag_list),
         owner_id=user.id,
         revision=1,
     )
@@ -182,7 +210,7 @@ def upload_document(
     # 后台补向量（不阻塞响应）
     ai_service.index_document_bg(doc.id)
 
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)
 
 
 @router.get("", response_model=DocumentPage)
@@ -192,6 +220,7 @@ def list_documents(
     q: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
     owner_id: int | None = Query(None),
+    tag: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=60),
 ) -> DocumentPage:
@@ -199,14 +228,27 @@ def list_documents(
     stmt = select(Document).where(Document.tenant_id == tenant_id)
     count_stmt = select(func.count()).select_from(Document).where(Document.tenant_id == tenant_id)
     if q:
-        stmt = stmt.where(Document.title.like(f"%{q}%"))
-        count_stmt = count_stmt.where(Document.title.like(f"%{q}%"))
+        # 同时搜标题与正文（正文为空则只匹配标题）
+        like = f"%{q}%"
+        cond = Document.title.like(like)
+        try:
+            cond = cond | func.coalesce(Document.content, "").like(like)
+        except Exception:  # noqa: BLE001
+            pass
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
     if status_filter:
         stmt = stmt.where(Document.status == status_filter)
         count_stmt = count_stmt.where(Document.status == status_filter)
     if owner_id:
         stmt = stmt.where(Document.owner_id == owner_id)
         count_stmt = count_stmt.where(Document.owner_id == owner_id)
+    if tag:
+        # 标签以英文逗号分隔存储，用 LIKE 做包含匹配（前后补逗号避免子串误命中）
+        t = f"%,{tag.strip()},%"
+        cond = Document.tags.like(t) | Document.tags.like(f"{tag.strip()},%") | Document.tags.like(f"%,{tag.strip()}") | (Document.tags == tag.strip())
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
 
     total = db.scalar(count_stmt) or 0
     rows = db.scalars(
@@ -216,11 +258,30 @@ def list_documents(
         .limit(page_size)
     ).all()
     return DocumentPage(
-        items=[DocumentOut.model_validate(r) for r in rows],
+        items=[_doc_out(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/tags")
+def list_tags(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> dict:
+    """当前知识库内所有标签及计数（按使用频次降序）。"""
+    tenant_id = _require_tenant(user)
+    rows = db.scalars(
+        select(Document.tags).where(
+            Document.tenant_id == tenant_id, Document.tags.isnot(None)
+        )
+    ).all()
+    counter: dict[str, int] = {}
+    for raw in rows:
+        for t in _parse_tags(raw):
+            counter[t] = counter.get(t, 0) + 1
+    items = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+    return {"items": [{"tag": t, "count": c} for t, c in items]}
 
 
 @router.get("/{doc_id}", response_model=DocumentOut)
@@ -230,7 +291,7 @@ def get_document(
     doc = _get_doc(doc_id, db, user)
     # 预取上传者，避免展示时再逐条查询
     db.refresh(doc, attribute_names=["owner"])
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)
 
 
 @router.get("/{doc_id}/chunks", response_model=list[ChunkOut])
@@ -329,6 +390,8 @@ def edit_document(
     # 2) 更新标题 / 版本号
     if payload.title and payload.title.strip() and payload.title.strip() != doc.title:
         doc.title = payload.title.strip()[:200]
+    if payload.tags is not None:
+        doc.tags = _dump_tags(payload.tags)
     doc.revision = (doc.revision or 1) + 1
     doc.edited_at = func.now()
     # 3) 用新正文重建分块（内部会更新 content / char_count / chunk_count）
@@ -341,7 +404,7 @@ def edit_document(
     # 4) 后台为新的分块补向量
     ai_service.index_document_bg(doc.id)
 
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)
 
 
 @router.get("/{doc_id}/revisions", response_model=list[DocumentRevisionOut])
@@ -416,7 +479,7 @@ def restore_revision(
     db.refresh(doc)
 
     ai_service.index_document_bg(doc.id)
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)
 
 
 @router.patch("/{doc_id}", response_model=DocumentOut)
@@ -431,9 +494,11 @@ def update_document(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能编辑自己上传的文档")
     if payload.title is not None:
         doc.title = payload.title
+    if payload.tags is not None:
+        doc.tags = _dump_tags(payload.tags)
     db.commit()
     db.refresh(doc)
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -470,4 +535,4 @@ def reindex_document(
         # 只补『被清掉向量』的新分块（旧向量已随分块删除）
         ai_service.refresh_embeddings(db, tenant_id=doc.tenant_id)
     db.refresh(doc)
-    return DocumentOut.model_validate(doc)
+    return _doc_out(doc)

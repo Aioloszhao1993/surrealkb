@@ -15,8 +15,10 @@ export default function Home() {
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
   const q = params.get('q') || ''
+  const tag = params.get('tag') || ''
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
+  const [tags, setTags] = useState([])
   const [data, setData] = useState({ items: [], total: 0, page_size: 12 })
   const [loading, setLoading] = useState(true)
 
@@ -24,7 +26,7 @@ export default function Home() {
     setLoading(true)
     try {
       const { data } = await api.get('/documents', {
-        params: { q: q || undefined, status: status || undefined, page },
+        params: { q: q || undefined, status: status || undefined, tag: tag || undefined, page },
       })
       setData(data)
     } catch {
@@ -32,11 +34,21 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
-  }, [q, status, page])
+  }, [q, status, tag, page])
+
+  const loadTags = useCallback(async () => {
+    if (!user) return
+    try {
+      const { data } = await api.get('/documents/tags')
+      setTags(data.items || [])
+    } catch {
+      setTags([])
+    }
+  }, [user])
 
   useEffect(() => {
     setPage(1)
-  }, [q, status])
+  }, [q, status, tag])
 
   useEffect(() => {
     if (!user) {
@@ -45,6 +57,10 @@ export default function Home() {
     }
     load()
   }, [load, user])
+
+  useEffect(() => {
+    loadTags()
+  }, [loadTags])
 
   const totalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 12)))
 
@@ -94,6 +110,33 @@ export default function Home() {
             <span className="count">共 {data.total} 篇文档</span>
           </div>
 
+          {tags.length > 0 && (
+            <div className="tag-bar">
+              <span className="tag-bar-label">标签</span>
+              <button
+                className={`tag-chip${!tag ? ' active' : ''}`}
+                onClick={() => setParams((p) => { p.delete('tag'); return p })}
+              >
+                全部
+              </button>
+              {tags.map((t) => (
+                <button
+                  key={t.tag}
+                  className={`tag-chip${tag === t.tag ? ' active' : ''}`}
+                  onClick={() =>
+                    setParams((p) => {
+                      p.set('tag', t.tag)
+                      return p
+                    })
+                  }
+                >
+                  #{t.tag}
+                  <em>{t.count}</em>
+                </button>
+              ))}
+            </div>
+          )}
+
           {loading ? (
             <div className="grid">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -102,10 +145,26 @@ export default function Home() {
             </div>
           ) : data.items.length === 0 ? (
             <div className="empty">
-              知识库里还没有文档。
-              <Link to="/upload" className="link">
-                上传第一篇 ↗
-              </Link>
+              {q || tag ? (
+                <>
+                  没有找到匹配的文档。
+                  <button className="link" onClick={() => setParams({})}>
+                    清除筛选
+                  </button>
+                </>
+              ) : (
+                <div className="onboard">
+                  <div className="onboard-title">知识库还是空的</div>
+                  <ol className="onboard-steps">
+                    <li>
+                      点右上角 <Link to="/upload" className="link">上传文档 ↗</Link>
+                      ，支持 PDF / Word / TXT / Markdown（≤50MB）
+                    </li>
+                    <li>系统自动解析正文、分块并建立向量索引</li>
+                    <li>点右下角 ✦ 向 AI 提问，答案带原文出处</li>
+                  </ol>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid">

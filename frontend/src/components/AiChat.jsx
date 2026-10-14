@@ -16,7 +16,62 @@ function getSessionKey() {
 
 const WELCOME = {
   role: 'assistant',
-  content: '你好，我是 Friday 🌙 你的企业知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
+  content:
+    '你好，我是 Friday 🌙 你的企业知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
+}
+
+// 用 fetch + ReadableStream 解析后端 SSE（axios 不便做浏览器流式）
+async function streamChat({ question, sessionKey, onSources, onDelta, signal }) {
+  const token = localStorage.getItem('token')
+  const res = await fetch('/api/ai/chat?stream=true', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-Session-Key': sessionKey,
+    },
+    body: JSON.stringify({ question }),
+    signal,
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try {
+      const j = await res.json()
+      detail = j.detail || detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let event = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const parts = buf.split('\n\n')
+    buf = parts.pop()
+    for (const block of parts) {
+      const lines = block.split('\n')
+      let data = ''
+      for (const ln of lines) {
+        if (ln.startsWith('event:')) event = ln.slice(6).trim()
+        else if (ln.startsWith('data:')) data += ln.slice(5).trim()
+      }
+      if (!data) continue
+      let obj
+      try {
+        obj = JSON.parse(data)
+      } catch {
+        continue
+      }
+      if (event === 'sources') onSources(obj.sources || [])
+      else if (event === 'delta') onDelta(obj)
+      else if (event === 'error') throw new Error(obj.detail || 'AI 出错')
+    }
+  }
 }
 
 export default function AiChat() {
@@ -28,11 +83,10 @@ export default function AiChat() {
   const [msgs, setMsgs] = useState([WELCOME])
   const boxRef = useRef(null)
   const sessionKey = useRef(getSessionKey())
+  const abortRef = useRef(null)
 
-  // 会话标识改由请求头携带（后端据此隔离聊天历史，不再暴露在 URL 里）
   const skHeaders = () => ({ headers: { 'X-Session-Key': sessionKey.current } })
 
-  // 探测后端 AI 是否可用；不可用则不显示入口
   useEffect(() => {
     api
       .get('/ai/status')
@@ -40,7 +94,6 @@ export default function AiChat() {
       .catch(() => setEnabled(false))
   }, [])
 
-  // 其他页面可通过 window.dispatchEvent(new CustomEvent('ai-ask', {detail: '...'})) 唤起并提问
   useEffect(() => {
     const onAsk = (e) => {
       const q = e?.detail
@@ -53,7 +106,6 @@ export default function AiChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy])
 
-  // 打开时拉取历史
   useEffect(() => {
     if (!open || !user) return
     api
@@ -83,16 +135,50 @@ export default function AiChat() {
       ])
       return
     }
-    setMsgs((m) => [...m, { role: 'user', content: text }])
+    setMsgs((m) => [...m, { role: 'user', content: text }, { role: 'assistant', content: '', streaming: true }])
     setBusy(true)
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     try {
-      const { data } = await api.post('/ai/chat', { question: text }, skHeaders())
-      setMsgs((m) => [...m, { role: 'assistant', content: data.answer, sources: data.sources }])
+      await streamChat({
+        question: text,
+        sessionKey: sessionKey.current,
+        signal: ctrl.signal,
+        onSources: (sources) =>
+          setMsgs((m) => {
+            const copy = m.slice()
+            copy[copy.length - 1] = { ...copy[copy.length - 1], sources }
+            return copy
+          }),
+        onDelta: (chunk) =>
+          setMsgs((m) => {
+            const copy = m.slice()
+            const last = copy[copy.length - 1]
+            copy[copy.length - 1] = { ...last, content: (last.content || '') + chunk }
+            return copy
+          }),
+      })
+      setMsgs((m) => {
+        const copy = m.slice()
+        const last = copy[copy.length - 1]
+        copy[copy.length - 1] = { ...last, streaming: false }
+        return copy
+      })
     } catch (e) {
-      setMsgs((m) => [...m, { role: 'assistant', content: '⚠️ ' + errMsg(e), error: true }])
+      if (e?.name === 'AbortError') {
+        setMsgs((m) => m) // 已停止，保留已生成内容
+      } else {
+        setMsgs((m) => [...m, { role: 'assistant', content: '⚠️ ' + (e?.message || errMsg(e)), error: true }])
+      }
     } finally {
       setBusy(false)
+      abortRef.current = null
     }
+  }
+
+  const stop = () => {
+    abortRef.current?.abort()
+    setBusy(false)
   }
 
   const send = async () => {
@@ -144,18 +230,24 @@ export default function AiChat() {
           <div className="ai-body" ref={boxRef}>
             {msgs.map((m, i) => (
               <div key={i} className={'ai-msg ' + m.role + (m.error ? ' err' : '')}>
-                <div className="ai-bubble">{m.content}</div>
+                <div className="ai-bubble">
+                  {m.content}
+                  {m.streaming && <span className="ai-caret" />}
+                </div>
                 {m.sources?.length > 0 && (
                   <div className="ai-sources">
                     {m.sources.map((s, si) => (
                       <Link
                         key={si}
-                        to={`/doc/${s.document_id}`}
+                        to={`/doc/${s.document_id}?hl=${encodeURIComponent(
+                          (s.snippet || '').slice(0, 20)
+                        )}&seq=${s.seq ?? ''}`}
                         className="ai-source"
                         onClick={() => setOpen(false)}
                         title={s.snippet}
                       >
                         📄 {s.title}
+                        {s.seq != null && <span className="ai-seq">第{s.seq + 1}段</span>}
                         <span className="ai-score">{(s.score * 100).toFixed(0)}%</span>
                       </Link>
                     ))}
@@ -163,7 +255,7 @@ export default function AiChat() {
                 )}
               </div>
             ))}
-            {busy && (
+            {busy && !msgs[msgs.length - 1]?.content && (
               <div className="ai-msg assistant">
                 <div className="ai-bubble ai-typing">
                   <span />
@@ -182,9 +274,13 @@ export default function AiChat() {
               placeholder="基于知识库提问…（Enter 发送）"
               disabled={busy}
             />
-            <button onClick={send} disabled={busy || !input.trim()}>
-              发送
-            </button>
+            {busy ? (
+              <button onClick={stop}>停止</button>
+            ) : (
+              <button onClick={send} disabled={!input.trim()}>
+                发送
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -175,3 +175,65 @@
 .editor-area:focus { border-color: rgba(155,89,255,.7); box-shadow: 0 0 0 3px rgba(155,89,255,.16); }
 .editor-foot { margin-top: 8px; font-size: 12px; color: #8f95b8; }
 
+
+/* ============================================================
+   P3 体验：标签 / 引用定位 / 空状态引导
+   ============================================================ */
+/* 卡片标签 */
+.card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.card-tag {
+  font-size: 11px; color: #7ef0e0; text-decoration: none;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(126,240,224,.08); border: 1px solid rgba(126,240,224,.22);
+}
+.card-tag:hover { background: rgba(126,240,224,.16); }
+
+/* 首页标签筛选条 */
+.tag-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 10px 12px;
+  background: rgba(16,18,38,.55); border: 1px solid rgba(155,89,255,.16);
+  border-radius: 12px;
+}
+.tag-bar-label { font-size: 12px; color: #8f95b8; margin-right: 2px; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #cfd4f0; cursor: pointer;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(155,89,255,.2);
+  transition: .15s;
+}
+.tag-chip:hover { border-color: rgba(155,89,255,.5); color: #fff; }
+.tag-chip.active { background: linear-gradient(90deg, #9b59ff, #ff5fa2); border-color: transparent; color: #fff; }
+.tag-chip em { font-style: normal; font-size: 10px; opacity: .75; }
+
+/* 文档详情标签 */
+.doc-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; }
+.doc-tag {
+  font-size: 12px; color: #7ef0e0; text-decoration: none;
+  padding: 2px 9px; border-radius: 999px;
+  background: rgba(126,240,224,.08); border: 1px solid rgba(126,240,224,.22);
+}
+.doc-tag:hover { background: rgba(126,240,224,.16); }
+.tag-add { font-size: 12px; }
+.tag-edit { display: inline-flex; align-items: center; gap: 8px; }
+.tag-edit input {
+  background: rgba(8,10,22,.7); color: #e8ecff;
+  border: 1px solid rgba(155,89,255,.3); border-radius: 8px;
+  padding: 4px 10px; font-size: 12px; outline: none; width: 220px;
+}
+.tag-edit input:focus { border-color: rgba(155,89,255,.7); }
+
+/* 引用定位 */
+mark.hl { background: rgba(255,206,84,.28); color: #ffe9a8; border-radius: 3px; padding: 0 2px; }
+.chunk-item.chunk-target { border-color: rgba(255,206,84,.6); box-shadow: 0 0 0 3px rgba(255,206,84,.14); }
+.chunk-item.chunk-hit { animation: chunkFlash 2.4s ease-out; }
+@keyframes chunkFlash {
+  0%, 30% { background: rgba(255,206,84,.16); }
+  100% { background: transparent; }
+}
+
+/* 空状态引导 */
+.onboard { text-align: left; max-width: 520px; margin: 0 auto; }
+.onboard-title { font-size: 16px; color: #e6dcff; margin-bottom: 10px; }
+.onboard-steps { margin: 0; padding-left: 20px; color: #aab0d0; line-height: 2; font-size: 14px; }

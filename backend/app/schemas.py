@@ -4,7 +4,7 @@
 """
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------- 用户 ----------
@@ -115,6 +115,7 @@ class DocumentOut(BaseModel):
     error: str | None = None
     chunk_count: int = 0
     char_count: int = 0
+    tags: list[str] = []
     revision: int = 1
     edited_at: datetime | None = None
     tenant_id: int | None = None
@@ -122,9 +123,20 @@ class DocumentOut(BaseModel):
     created_at: datetime
     owner: UserPublic | None = None
 
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _split_tags(cls, v):
+        """ORM 里 tags 是逗号分隔字符串，这里兼容解析为列表。"""
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [t.strip() for t in v.split(",") if t.strip()]
+        return v
+
 
 class DocumentUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
+    tags: list[str] | None = None
 
 
 class DocumentPage(BaseModel):
@@ -155,6 +167,7 @@ class DocumentEdit(BaseModel):
     """在线编辑正文（可选同时改标题）。"""
     content: str = Field(max_length=2_000_000)
     title: str | None = Field(default=None, max_length=200)
+    tags: list[str] | None = None
 
 
 class DocumentRevisionOut(BaseModel):
@@ -186,6 +199,10 @@ class SourceOut(BaseModel):
     title: str
     score: float
     snippet: str = ""
+    # 出处定位：分块序号 / 分块 id / 在正文中的字符偏移
+    seq: int = 0
+    chunk_id: int | None = None
+    char_start: int | None = None
 
 
 class ChatOut(BaseModel):

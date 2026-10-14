@@ -345,3 +345,22 @@
   .ai-panel { right: 12px; left: 12px; bottom: 84px; width: auto; height: min(72vh, 560px); }
 }
 
+
+/* ============================================================
+   P3：AI 流式光标 / 出处段号 / 错误边界
+   ============================================================ */
+.ai-caret {
+  display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+  background: #9b59ff; vertical-align: text-bottom;
+  animation: caretBlink 1s steps(2, start) infinite;
+}
+@keyframes caretBlink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+.ai-seq {
+  font-size: 10px; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(155,89,255,.18); color: #c9b8ff;
+}
+
+.err-boundary { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 20px; }
+.err-boundary-title { font-size: 20px; color: #e6dcff; }
+.err-boundary-msg { color: #aab0d0; font-size: 13px; max-width: 560px; word-break: break-word; }
+.err-boundary-actions { display: flex; gap: 10px; margin-top: 6px; }

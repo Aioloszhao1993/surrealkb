@@ -31,6 +31,15 @@ export default function DocCard({ doc }) {
         <h3 className="card-title">{doc.title}</h3>
       </Link>
       <div className="card-body">
+        {doc.tags?.length > 0 && (
+          <div className="card-tags">
+            {doc.tags.slice(0, 3).map((t) => (
+              <Link key={t} to={`/?tag=${encodeURIComponent(t)}`} className="card-tag">
+                #{t}
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="card-meta doc-meta">
           <span>{doc.doc_type.toUpperCase()}</span>
           <span className="sep" />

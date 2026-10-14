@@ -44,11 +44,12 @@ frontend/
    │  ├─ UserHoverCard.jsx   # 悬停资料卡（类 B 站）
    │  ├─ AccountMenu.jsx     # 账号下拉菜单（顶栏只显示头像）
    │  ├─ WechatLogin.jsx     # 微信扫码登录弹窗
+   │  ├─ ErrorBoundary.jsx   # 渲染错误边界（不白屏）
    │  └─ format.js           # 数字/时间/体积格式化
    └─ pages/                 # 路由级页面
-      ├─ Home.jsx            # 首页：文档列表 + 搜索 + 状态筛选 + 分页
-      ├─ DocDetail.jsx       # 文档详情：分块列表 + 改名/重建索引/删除 + 问问 AI
-      ├─ Upload.jsx          # 上传页：拖拽/点选 + 进度条
+      ├─ Home.jsx            # 首页：文档列表 + 搜索 + 标签筛选 + 状态筛选 + 分页 + 空状态引导
+      ├─ DocDetail.jsx       # 文档详情：原文/分块 + 标签 + 改名/编辑/重建/删除/下载 + 引用定位 + 问问 AI
+      ├─ Upload.jsx          # 上传页：拖拽/点选 + 标签 + 进度条
       ├─ Login.jsx           # 登录
       ├─ Register.jsx        # 注册（可选创建/加入知识库 + 头像）
       ├─ Profile.jsx         # 用户主页（某作者上传的文档）
@@ -149,8 +150,8 @@ useEffect(() => {
 
 - **悬浮球**（`.ai-fab`）：固定右下角，点击开合面板。
 - **面板**（`.ai-panel`）：头部（标题 + 清空 + 关闭）、消息区、输入框。
-- **打字机效果**：后端返整段答案后，前端逐字吐出（`setInterval` 切片）。
-- **引用胶囊**：`data.sources` 渲染成一排小胶囊，点击跳 `/doc/{document_id}`。
+- **打字机效果**：真正的**流式输出**（SSE）。前端用 `fetch` + `ReadableStream` 解析后端 `text/event-stream`（`sources` → 多段 `delta` → `done`），逐字渲染，生成中可点「停止」（`AbortController` 中断）。
+- **引用胶囊**：`sources` 渲染成一排小胶囊（含命中段号与相似度），点击跳 `/doc/{document_id}?hl=关键词&seq=N`，到详情页后自动定位到对应分块并高亮。
 - **会话保持**：`session_key` 用 `useRef` 生成一次并写 localStorage，刷新后点开还能看到历史；该标识改用 `X-Session-Key` 请求头传递给后端（不再拼进 URL），后端按「用户 + 会话」双重隔离。未登录时点「问问 AI」会提示先登录。
 - **外部唤起**：监听 `window` 的 `ai-ask` 自定义事件。文档详情页的「✦ 问问 AI」按钮就是派发该事件，面板自动打开并提问。
 - **开关联动**：挂载时探一次 `/api/ai/status`，后端没配 Key（`enabled:false`）就不渲染入口。

@@ -205,7 +205,8 @@ npm run dev
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/documents` | 上传文档（multipart，≤50MB，自动解析 + 分块）。同名默认报 409；带 `overwrite=true` 则覆盖旧文档 |
-| GET | `/api/documents` | 列表（`q`/`status`/`owner_id`/`page`/`page_size`） |
+| GET | `/api/documents` | 列表（`q` 全文检索 / `tag` 标签筛选 / `status` / `owner_id` / `page` / `page_size`） |
+| GET | `/api/documents/tags` | 当前知识库的标签及文档数（用于筛选条） |
 | GET | `/api/documents/{id}` | 详情（含 `revision` 版本号） |
 | GET | `/api/documents/{id}/content` | 提取出的纯文本全文（「原文」阅读视图） |
 | GET | `/api/documents/{id}/raw` | 下载/预览原始上传文件（`?inline=true` 时 PDF 内嵌预览） |
@@ -215,7 +216,7 @@ npm run dev
 | GET | `/api/documents/{id}/revisions` | 历史版本列表 |
 | GET | `/api/documents/{id}/revisions/{rev_id}` | 查看某历史版本全文 |
 | POST | `/api/documents/{id}/revisions/{rev_id}/restore` | 回滚到某历史版本 |
-| PATCH | `/api/documents/{id}` | 改标题 |
+| PATCH | `/api/documents/{id}` | 改标题 / 标签 |
 | DELETE | `/api/documents/{id}` | 删除（上传者或管理员） |
 | POST | `/api/documents/{id}/reindex` | 重新解析并重建向量索引 |
 
@@ -232,7 +233,7 @@ npm run dev
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/ai/status` | 是否启用 + 已索引分块数 |
-| POST | `/api/ai/chat` | 提问（**需登录**；body `{question}`，会话标识经 `X-Session-Key` 头携带）→ 答案 + 出处 |
+| POST | `/api/ai/chat` | 提问（**需登录**；body `{question}`，会话标识经 `X-Session-Key` 头携带；`?stream=true` 返回 SSE 流式）→ 答案 + 出处（含 `seq`/`char_start` 供引用定位） |
 | GET | `/api/ai/history` | 拉取当前会话历史（**需登录** + `X-Session-Key`） |
 | DELETE | `/api/ai/history` | 清空当前会话历史（**需登录** + `X-Session-Key`） |
 | POST | `/api/ai/reindex?force=true` | 重建 / 补齐当前知识库的分块向量 |
@@ -254,14 +255,17 @@ npm run dev
 
 - 支持 **PDF / Word(.docx) / TXT / Markdown**，单个 ≤ `MAX_DOC_MB`（默认 50MB）。
 - 上传后同步解析提取文本 → 语义分块（默认 800 字/块、重叠 120 字）→ 后台补向量。
-- 首页文档列表支持**关键词搜索**、**按状态筛选**（全部 / 已就绪 / 处理中 / 失败）、分页，每张卡片显示文档**上传者**（头像+昵称，可点击进主页、悬停看资料卡）。
-- 文档详情页可查看**原文样式/纯文本/分块**三种视图、改名、**在线编辑正文**（富文本所见即所得，Markdown 为交换格式；存历史版本可回滚）、**重建索引**、**下载当前版本**（导出为 Word/PDF/Markdown/TXT）、删除，并可「**问问 AI**」总结该文档；头部同时显示**上传者**（悬停资料卡）。
+- 首页文档列表支持**关键词搜索**（标题 + 正文）、**按标签筛选**、**按状态筛选**（全部 / 已就绪 / 处理中 / 失败）、分页，每张卡片显示文档**标签**与**上传者**（头像+昵称，可点击进主页、悬停看资料卡）；知识库为空时展示三步上手引导。
+- 文档详情页可查看**原文样式/纯文本/分块**三种视图、改名、**管理标签**、**在线编辑正文**（富文本所见即所得，Markdown 为交换格式；存历史版本可回滚）、**重建索引**、**下载当前版本**（导出为 Word/PDF/Markdown/TXT）、删除，并可「**问问 AI**」总结该文档；头部同时显示**标签**与**上传者**（悬停资料卡）。
+- **引用定位**：从 AI 回答的出处胶囊点击进入文档时，自动切到对应视图、滚动到命中分块并高亮关键词。
+- 前端带**错误边界**：页面渲染异常时展示友好提示与「重试 / 回首页」，不白屏。
 
 ### AI 助手（对话式问答，带出处）
 
 - 右下角悬浮「✦」按钮随时可聊；文档详情页「问问 AI」会把当前文档带进上下文。
-- 回答严格基于**你知识库里的文档**，句末标注来源编号 `[1]`，前端渲染成可点击的引用胶囊。
-- 会话记录按 `session_key` 保存（存 localStorage），刷新不丢。
+- **流式输出**：回答逐字实时呈现（SSE），生成中可随时「停止」。
+- 回答严格基于**你知识库里的文档**，句末标注来源编号 `[1]`，前端渲染成可点击的引用胶囊（带命中段号与相似度，点击可定位到原文分块）。
+- 会话记录按「用户 + `session_key`」保存（`session_key` 存 localStorage），刷新不丢，且不会读到别人的会话。
 
 ---
 

@@ -7,6 +7,7 @@
   避免「知道别人的 session_key 就能读/删其聊天记录」。
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -35,17 +36,34 @@ def ai_status(
     }
 
 
-@router.post("/chat", response_model=ChatOut)
+@router.post("/chat")
 def ai_chat(
     payload: ChatIn,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     session_key: str = Depends(get_session_key),
-) -> ChatOut:
+    stream: bool = False,
+):
     if not ai_service.ai_ready():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "AI 未配置：请在 backend/.env 填写 DASHSCOPE_API_KEY",
+        )
+    if stream:
+        # SSE 流式：先 __sources__ 事件，再逐 token，最后 __done__
+        def gen():
+            import json as _json
+
+            try:
+                for event, data in ai_service.chat_stream(db, payload.question, session_key, user):
+                    yield f"event: {event}\ndata: {_json.dumps(data, ensure_ascii=False)}\n\n"
+            except Exception as exc:  # noqa: BLE001
+                yield f"event: error\ndata: {_json.dumps({'detail': str(exc)}, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
     try:
         result = ai_service.chat(db, payload.question, session_key, user)

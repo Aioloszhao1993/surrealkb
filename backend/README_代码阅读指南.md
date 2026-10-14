@@ -94,7 +94,7 @@
 - `_overlap_tail`：重叠长度**硬性封顶**，防止无句末标点的文本滚雪球
 - `build_chunks` / `process_document`：写 Chunk 表并更新文档状态
 
-### 第 9 步 · `app/ai_service.py`（334 行，核心）
+### 第 9 步 · `app/ai_service.py`（核心）
 **手写轻量 RAG。**
 1. `_pack / _unpack`：向量 ↔ float32 字节（存 MySQL BLOB）
 2. `_cos`：手写余弦相似度
@@ -102,9 +102,10 @@
 4. `embed_texts`：调百炼 `text-embedding-v3`（每 10 条一批）
 5. `refresh_embeddings`：为「尚无向量」的分块补齐向量，带 `_INDEX_LOCK` 串行化 + 租户过滤
 6. `search_chunks`：**混合检索**——向量（0.55）+ BM25（0.45）归一后加权融合，Top-K
-7. `_system_prompt`：把命中片段（含出处、相似度）拼进 system prompt
-8. `chat`：拼历史 + 提问 → 调 `qwen-plus` → 落库 → 返回 `{answer, sources}`
-9. `index_document_bg`：上传后开后台线程补索引
+7. `_system_prompt`：把命中片段（含出处、相似度、命中段号 `seq`、正文偏移 `char_start`）拼进 system prompt
+8. `_char_offset`：定位分块在正文中的起始位置，供前端**引用定位**高亮
+9. `chat`（非流式）/ `chat_stream`（**SSE 流式**）：共用 `_build_messages`（拼历史+检索片段→messages）与 `_persist_exchange`（落库），后者先 yield `sources`，再逐 token yield `delta`，最后 `done`
+10. `index_document_bg`：上传后开后台线程补索引
 
 ### 第 10 步 · `app/wechat_service.py`（233 行）
 **微信扫码登录。**
@@ -118,13 +119,13 @@
 - **`auth.py`（284 行）**：注册（`_resolve_tenant` 决定建库/加入）/ 登录(JSON) / 登录(表单，给 Swagger) / 我 / 头像 / 微信扫码全链路（qrcode / poll / mock / mock confirm / callback / virtual）
 - **`tenants.py`（122 行）**：`/current` / 创建 / 加入 / 成员 / 成员明细
 - **`users.py`（99 行）**：⚠️ 静态路径 `/me` 写在 `/{user_id}` **之前**，否则「me」会被当成 id；改资料 / 资料页 / 关注
-- **`documents.py`（208 行，核心）**：按顺序读——
-  1. `upload_document`：分块读文件 + 大小限制 + 存盘 + 同步解析分块 + 后台补向量
-  2. `list_documents`：搜索 / 状态筛选 / 按作者 / 分页（严格按 `tenant_id` 过滤）
+- **`documents.py`（核心）**：按顺序读——
+  1. `upload_document`：分块读文件 + 大小限制 + 存盘 + 同步解析分块 + 后台补向量（同名默认 409）
+  2. `list_documents`：全文搜索 / 标签筛选 / 状态筛选 / 按作者 / 分页（严格按 `tenant_id` 过滤）
   3. `get_document` / `get_document_chunks`：详情 / 分块
   4. `update_document` / `delete_document`：改标题 / 删除（上传者或 owner/admin 才可删）
   5. `reindex_document`：重新解析 + 重建该文档向量
-- **`ai.py`（85 行）**：`/status`（是否启用 + 已索引数）/ `/chat` / `/history` / `/reindex`
+- **`ai.py`**：`/status`（是否启用 + 已索引数）/ `/chat`（**需登录** + `X-Session-Key`；`?stream=true` 走 SSE 流式）/ `/history` / `/reindex`
 
 ---
 

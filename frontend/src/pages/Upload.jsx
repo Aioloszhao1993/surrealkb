@@ -20,6 +20,7 @@ export default function Upload() {
   const nav = useNavigate()
   const [title, setTitle] = useState('')
   const [file, setFile] = useState(null)
+  const [tags, setTags] = useState('')
   const [progress, setProgress] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -67,6 +68,7 @@ export default function Upload() {
     setError('')
     const fd = new FormData()
     if (title.trim()) fd.append('title', title.trim())
+    if (tags.trim()) fd.append('tags', tags.trim())
     if (overwrite) fd.append('overwrite', 'true')
     fd.append('file', file)
 
@@ -110,6 +112,16 @@ export default function Upload() {
             onChange={(e) => setTitle(e.target.value)}
             maxLength={200}
             placeholder="给这篇文档起个名字"
+          />
+        </label>
+
+        <label className="field">
+          <span>标签（可选，逗号分隔，最多 10 个）</span>
+          <input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            maxLength={200}
+            placeholder="如：合同, 人事制度, 财务"
           />
         </label>
 

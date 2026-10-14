@@ -270,23 +270,34 @@ def _system_prompt(
             "title": doc.title,
             "score": round(score, 4),
             "snippet": chunk.content.strip().replace("\n", " ")[:160],
+            "seq": chunk.seq,
+            "chunk_id": chunk.id,
+            "char_start": _char_offset(doc, chunk),
         }
         for chunk, doc, score in hits
     ]
     return system, sources
 
 
-# ---------------------------------------------------------------- 主入口
-def chat(
-    db: Session,
-    question: str,
-    session_key: str,
-    user: User | None = None,
-    history_limit: int = 6,
-) -> dict:
-    if not ai_ready():
-        raise RuntimeError("AI 未配置：请在 backend/.env 里填 DASHSCOPE_API_KEY")
+def _char_offset(doc: Document, chunk: Chunk) -> int:
+    """估算分块在正文中的起始字符位置，用于前端『引用定位』高亮。"""
+    try:
+        if not doc.content:
+            return 0
+        probe = chunk.content.strip()[:60]
+        if not probe:
+            return 0
+        pos = doc.content.find(probe)
+        return pos if pos >= 0 else 0
+    except Exception:  # noqa: BLE001
+        return 0
 
+
+# ---------------------------------------------------------------- 主入口
+def _build_messages(
+    db: Session, question: str, session_key: str, user: User | None, history_limit: int
+) -> tuple[list[dict], list[dict], int | None]:
+    """组装多轮消息（含检索片段），返回 (messages, sources, tenant_id)。"""
     history = list(
         db.scalars(
             select(ChatMessage)
@@ -303,15 +314,12 @@ def chat(
     messages = [{"role": "system", "content": system}]
     messages += [{"role": m.role, "content": m.content} for m in history]
     messages.append({"role": "user", "content": question})
+    return messages, sources, tenant_id
 
-    with _client() as c:
-        resp = c.post(
-            "/chat/completions",
-            json={"model": settings.ai_chat_model, "messages": messages, "temperature": 0.3},
-        )
-        resp.raise_for_status()
-        answer = resp.json()["choices"][0]["message"]["content"].strip()
 
+def _persist_exchange(
+    db: Session, question: str, answer: str, session_key: str, user: User | None, tenant_id: int | None
+) -> None:
     db.add(
         ChatMessage(
             session_key=session_key,
@@ -332,7 +340,90 @@ def chat(
     )
     db.commit()
 
+
+def chat(
+    db: Session,
+    question: str,
+    session_key: str,
+    user: User | None = None,
+    history_limit: int = 6,
+) -> dict:
+    if not ai_ready():
+        raise RuntimeError("AI 未配置：请在 backend/.env 里填 DASHSCOPE_API_KEY")
+
+    messages, sources, tenant_id = _build_messages(db, question, session_key, user, history_limit)
+
+    with _client() as c:
+        resp = c.post(
+            "/chat/completions",
+            json={"model": settings.ai_chat_model, "messages": messages, "temperature": 0.3},
+        )
+        resp.raise_for_status()
+        answer = resp.json()["choices"][0]["message"]["content"].strip()
+
+    _persist_exchange(db, question, answer, session_key, user, tenant_id)
     return {"answer": answer, "sources": sources, "session_key": session_key}
+
+
+def chat_stream(
+    db: Session,
+    question: str,
+    session_key: str,
+    user: User | None = None,
+    history_limit: int = 6,
+):
+    """流式问答：先产出 sources，再逐步产出回答增量，最后入库。
+
+    yield 的每个元素为 (event, data) 二元组：
+      ("sources", {"sources": [...]}) → ("delta", "文字片段")* → ("done", {...})
+    调用方（路由层）负责把它转成 SSE。
+    """
+    if not ai_ready():
+        raise RuntimeError("AI 未配置：请在 backend/.env 里填 DASHSCOPE_API_KEY")
+
+    messages, sources, tenant_id = _build_messages(db, question, session_key, user, history_limit)
+    yield "sources", {"sources": sources}
+
+    answer_parts: list[str] = []
+    with _client() as c:
+        with c.stream(
+            "POST",
+            "/chat/completions",
+            json={
+                "model": settings.ai_chat_model,
+                "messages": messages,
+                "temperature": 0.3,
+                "stream": True,
+            },
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                if isinstance(line, bytes):
+                    line = line.decode("utf-8", "ignore")
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    import json as _json
+
+                    obj = _json.loads(payload)
+                except Exception:  # noqa: BLE001
+                    continue
+                choices = obj.get("choices") or []
+                if not choices:
+                    continue
+                delta = (choices[0].get("delta") or {}).get("content")
+                if delta:
+                    answer_parts.append(delta)
+                    yield "delta", delta
+
+    answer = "".join(answer_parts).strip()
+    _persist_exchange(db, question, answer, session_key, user, tenant_id)
+    yield "done", {"answer": answer, "sources": sources, "session_key": session_key}
 
 
 def get_history(

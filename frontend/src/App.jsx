@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Background from './components/Background'
+import ErrorBoundary from './components/ErrorBoundary'
 import Home from './pages/Home'
 import DocDetail from './pages/DocDetail'
 import Upload from './pages/Upload'
@@ -25,6 +26,7 @@ export default function App() {
       <Background />
       <Navbar />
       <main className="container">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/doc/:id" element={<DocDetail />} />
@@ -49,6 +51,7 @@ export default function App() {
           />
           <Route path="*" element={<div className="empty">404 · 这一页不存在于现实</div>} />
         </Routes>
+        </ErrorBoundary>
       </main>
       <AiChat />
       <footer className="footer">

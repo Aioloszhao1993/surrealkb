@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api, { errMsg } from '../api'
 import { num, timeAgo } from '../components/format'
 import Avatar from '../components/Avatar'
@@ -9,6 +9,20 @@ import RichTextEditor from '../components/RichTextEditor'
 import { useAuth } from '../store'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
+
+// 引用定位：把命中关键词包成 <mark>
+function HighlightedContent({ text, kw }) {
+  if (!kw) return text
+  const idx = text.indexOf(kw)
+  if (idx < 0) return text
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="hl">{kw}</mark>
+      {text.slice(idx + kw.length)}
+    </>
+  )
+}
 
 function sizeFmt(bytes) {
   if (!bytes) return '—'
@@ -26,6 +40,9 @@ export default function DocDetail() {
   const { id } = useParams()
   const { user } = useAuth()
   const nav = useNavigate()
+  const [params] = useSearchParams()
+  const hl = params.get('hl') || '' // 引用定位：要高亮的关键词
+  const jumpSeq = params.get('seq') // 引用定位：要定位的分块序号
   const [doc, setDoc] = useState(null)
   const [chunks, setChunks] = useState([])
   const [content, setContent] = useState(null) // 提取出的纯文本全文
@@ -35,6 +52,8 @@ export default function DocDetail() {
   const [busy, setBusy] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState('')
+  const [tagInput, setTagInput] = useState('')
+  const [editTags, setEditTags] = useState(false)
 
   // 在线编辑
   const [editing, setEditing] = useState(false)
@@ -80,6 +99,24 @@ export default function DocDetail() {
     load()
   }, [load])
 
+  // 引用定位：从 AI 出处跳进来时，自动切到对应视图并高亮
+  useEffect(() => {
+    if (!doc) return
+    if (jumpSeq !== null && jumpSeq !== '') {
+      setTab('chunks')
+      const t = setTimeout(() => {
+        const el = document.querySelector(`[data-chunk-seq="${jumpSeq}"]`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('chunk-hit')
+          setTimeout(() => el.classList.remove('chunk-hit'), 2600)
+        }
+      }, 350)
+      return () => clearTimeout(t)
+    }
+    if (hl) setTab('content')
+  }, [doc, jumpSeq, hl])
+
   // 切到「原文」时按需拉取全文（大文本不在首屏加载）
   useEffect(() => {
     if (tab === 'content' && content === null && doc?.status === 'ready') {
@@ -97,6 +134,18 @@ export default function DocDetail() {
       setDoc(data)
       setRenaming(false)
       flash('标题已更新')
+    } catch (e) {
+      flash(errMsg(e))
+    }
+  }
+
+  const saveTags = async (next) => {
+    try {
+      const { data } = await api.patch(`/documents/${id}`, { tags: next })
+      setDoc(data)
+      setTagInput('')
+      setEditTags(false)
+      flash('标签已更新')
     } catch (e) {
       flash(errMsg(e))
     }
@@ -336,6 +385,44 @@ export default function DocDetail() {
               <span>· {chunks.length} 段</span>
               <span>· {timeAgo(doc.edited_at || doc.created_at)}</span>
             </div>
+            <div className="doc-tags">
+              {(doc.tags || []).map((t) => (
+                <Link key={t} to={`/?tag=${encodeURIComponent(t)}`} className="doc-tag">
+                  #{t}
+                </Link>
+              ))}
+              {mine && (
+                editTags ? (
+                  <span className="tag-edit">
+                    <input
+                      value={tagInput}
+                      autoFocus
+                      placeholder="逗号分隔，如 合同,制度"
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveTags(tagInput.split(/[,,]/).map((s) => s.trim()).filter(Boolean))
+                        if (e.key === 'Escape') setEditTags(false)
+                      }}
+                    />
+                    <button
+                      className="link"
+                      onClick={() =>
+                        saveTags(tagInput.split(/[,,]/).map((s) => s.trim()).filter(Boolean))
+                      }
+                    >
+                      保存
+                    </button>
+                    <button className="link" onClick={() => setEditTags(false)}>
+                      取消
+                    </button>
+                  </span>
+                ) : (
+                  <button className="link tag-add" onClick={() => { setTagInput((doc.tags || []).join(',')); setEditTags(true) }}>
+                    + 添加标签
+                  </button>
+                )
+              )}
+            </div>
             {doc.error && <div className="alert">{doc.error}</div>}
           </div>
         </div>
@@ -459,7 +546,9 @@ export default function DocDetail() {
             ) : content === null ? (
               <div className="page-loading">正在加载原文…</div>
             ) : content ? (
-              <article className="doc-content">{content}</article>
+              <article className="doc-content">
+                {hl ? <HighlightedContent text={content} kw={hl} /> : content}
+              </article>
             ) : (
               <div className="empty">未能提取到正文内容。</div>
             )
@@ -468,9 +557,15 @@ export default function DocDetail() {
           ) : (
             <div className="chunk-list">
               {chunks.map((c) => (
-                <div key={c.id} className="chunk-item">
+                <div
+                  key={c.id}
+                  className={'chunk-item' + (String(c.seq) === String(jumpSeq) ? ' chunk-target' : '')}
+                  data-chunk-seq={c.seq}
+                >
                   <span className="chunk-seq">#{c.seq + 1}</span>
-                  <p className="chunk-text">{c.content}</p>
+                  <p className="chunk-text">
+                    {String(c.seq) === String(jumpSeq) && hl ? <HighlightedContent text={c.content} kw={hl} /> : c.content}
+                  </p>
                 </div>
               ))}
             </div>

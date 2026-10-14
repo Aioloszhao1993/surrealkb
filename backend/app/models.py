@@ -90,6 +90,8 @@ class Document(Base):
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     char_count: Mapped[int] = mapped_column(Integer, default=0)
+    # 标签（英文逗号分隔，用于分类/筛选），如 "合同,劳动,制度"
+    tags: Mapped[str] = mapped_column(String(200), default="")
     # 提取出的全文（供「原文」阅读视图）；MySQL 用 LONGTEXT，其他方言回退 TEXT
     # deferred=True：列表/详情查询默认不加载，避免把大字段全拖回来
     content: Mapped[str | None] = mapped_column(

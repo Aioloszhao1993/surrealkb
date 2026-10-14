@@ -23,6 +23,7 @@ ADD_COLUMNS = {
         ("content", "LONGTEXT NULL"),
         ("revision", "INT NOT NULL DEFAULT 1"),
         ("edited_at", "DATETIME NULL"),
+        ("tags", "VARCHAR(200) NOT NULL DEFAULT ''"),
     ],
 }
 
