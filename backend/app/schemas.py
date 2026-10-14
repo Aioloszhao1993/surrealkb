@@ -199,10 +199,10 @@ class SourceOut(BaseModel):
     title: str
     score: float
     snippet: str = ""
-    # 出处定位：分块序号 / 分块 id / 在正文中的字符偏移
+    # 出处定位：分块序号 / 分块 id / 原文锚点（用于前端精确回定位高亮）
     seq: int = 0
     chunk_id: int | None = None
-    char_start: int | None = None
+    anchor: str = ""
 
 
 class ChatOut(BaseModel):

@@ -272,25 +272,39 @@ def _system_prompt(
             "snippet": chunk.content.strip().replace("\n", " ")[:160],
             "seq": chunk.seq,
             "chunk_id": chunk.id,
-            "char_start": _char_offset(doc, chunk),
+            "anchor": _make_anchor(doc, chunk),
         }
         for chunk, doc, score in hits
     ]
     return system, sources
 
 
-def _char_offset(doc: Document, chunk: Chunk) -> int:
-    """估算分块在正文中的起始字符位置，用于前端『引用定位』高亮。"""
+def _make_anchor(doc: Document, chunk: Chunk) -> str:
+    """生成用于前端『精确回定位』的锚点：分块在正文里真实存在的连续片段。
+
+    难点：分块正文经过 normalize()（把换行/重复空白压成空格），与 document.content
+    里的原文（保留换行）不完全一致。所以不能直接 find，也不能按空白拆 token——
+    因原文的换行可能落在 token 中间。做法：把分块开头的非空白字符逐个取出，
+    用「字符间允许任意空白(\\s*)」的正则在原文里定位，返回原文中的真实文本。
+    前端同样按「去空白后逐字匹配」定位，两侧一致。
+    """
     try:
-        if not doc.content:
-            return 0
-        probe = chunk.content.strip()[:60]
-        if not probe:
-            return 0
-        pos = doc.content.find(probe)
-        return pos if pos >= 0 else 0
+        content = doc.content or ""
+        if not content or not chunk.content:
+            return ""
+        chars = [ch for ch in chunk.content if not ch.isspace()]
+        if not chars:
+            return ""
+        for n in (40, 24, 16, 10, 6):
+            if n > len(chars):
+                continue
+            pat = r"\s*".join(re.escape(ch) for ch in chars[:n])
+            m = re.search(pat, content)
+            if m:
+                return m.group(0)
+        return ""
     except Exception:  # noqa: BLE001
-        return 0
+        return ""
 
 
 # ---------------------------------------------------------------- 主入口

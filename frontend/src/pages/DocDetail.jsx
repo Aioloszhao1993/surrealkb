@@ -10,16 +10,29 @@ import { useAuth } from '../store'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
 
-// 引用定位：把命中关键词包成 <mark>
+// 引用定位：把命中锚点在原文里高亮
+// anchor 来自后端，是「去空白后的字符序列」；用「字符间允许任意空白」的正则
+// 在原文里匹配，容忍分块 normalize 与原文换行的差异。
+function findAnchor(text, anchor) {
+  if (!anchor) return null
+  const chars = Array.from(anchor).filter((c) => !/\s/.test(c))
+  if (!chars.length) return null
+  const esc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pat = new RegExp(chars.map(esc).join('\\s*'))
+  const m = pat.exec(text)
+  if (!m) return null
+  return { start: m.index, end: m.index + m[0].length }
+}
+
 function HighlightedContent({ text, kw }) {
   if (!kw) return text
-  const idx = text.indexOf(kw)
-  if (idx < 0) return text
+  const hit = findAnchor(text, kw)
+  if (!hit) return text
   return (
     <>
-      {text.slice(0, idx)}
-      <mark className="hl">{kw}</mark>
-      {text.slice(idx + kw.length)}
+      {text.slice(0, hit.start)}
+      <mark className="hl">{text.slice(hit.start, hit.end)}</mark>
+      {text.slice(hit.end)}
     </>
   )
 }
@@ -41,8 +54,8 @@ export default function DocDetail() {
   const { user } = useAuth()
   const nav = useNavigate()
   const [params] = useSearchParams()
-  const hl = params.get('hl') || '' // 引用定位：要高亮的关键词
-  const jumpSeq = params.get('seq') // 引用定位：要定位的分块序号
+  const hl = params.get('hl') || '' // 引用定位：原文中的锚点片段（精准定位用）
+  const jumpSeq = params.get('seq') // 引用定位：分块序号（回退定位用）
   const [doc, setDoc] = useState(null)
   const [chunks, setChunks] = useState([])
   const [content, setContent] = useState(null) // 提取出的纯文本全文
@@ -99,23 +112,21 @@ export default function DocDetail() {
     load()
   }, [load])
 
-  // 引用定位：从 AI 出处跳进来时，自动切到对应视图并高亮
+  // 引用定位：带锚点/段号从 AI 出处跳进来时，自动切到「原文」视图并高亮
   useEffect(() => {
     if (!doc) return
-    if (jumpSeq !== null && jumpSeq !== '') {
-      setTab('chunks')
-      const t = setTimeout(() => {
-        const el = document.querySelector(`[data-chunk-seq="${jumpSeq}"]`)
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          el.classList.add('chunk-hit')
-          setTimeout(() => el.classList.remove('chunk-hit'), 2600)
-        }
-      }, 350)
-      return () => clearTimeout(t)
-    }
-    if (hl) setTab('content')
+    if (hl || (jumpSeq !== null && jumpSeq !== '')) setTab('content')
   }, [doc, jumpSeq, hl])
+
+  // 原文加载完成后，把命中位置滚动到视口中间
+  useEffect(() => {
+    if (tab !== 'content' || content === null || !hl) return
+    const t = setTimeout(() => {
+      const el = document.querySelector('.doc-content mark.hl')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 200)
+    return () => clearTimeout(t)
+  }, [tab, content, hl])
 
   // 切到「原文」时按需拉取全文（大文本不在首屏加载）
   useEffect(() => {

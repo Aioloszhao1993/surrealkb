@@ -240,7 +240,7 @@ export default function AiChat() {
                       <Link
                         key={si}
                         to={`/doc/${s.document_id}?hl=${encodeURIComponent(
-                          (s.snippet || '').slice(0, 20)
+                          s.anchor || s.snippet || ''
                         )}&seq=${s.seq ?? ''}`}
                         className="ai-source"
                         onClick={() => setOpen(false)}
