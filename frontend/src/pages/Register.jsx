@@ -45,7 +45,7 @@ export default function Register() {
   return (
     <div className="auth-card">
       <h1 className="auth-title">创建账号</h1>
-      <p className="auth-sub">拥有属于你自己的企业知识库</p>
+      <p className="auth-sub">拥有属于你自己的知识库</p>
 
       <form onSubmit={submit} className="form">
         <PresetGrid value={avatar} onChange={setAvatar} username={username} />

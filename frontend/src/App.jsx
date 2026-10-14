@@ -55,7 +55,7 @@ export default function App() {
       </main>
       <AiChat />
       <footer className="footer">
-        <span>SurrealKB · 企业知识库问答</span>
+        <span>SurrealKB · 知识库问答</span>
         <span className="faint">FastAPI × React × MySQL × 百炼</span>
       </footer>
     </div>

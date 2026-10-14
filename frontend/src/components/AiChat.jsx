@@ -17,7 +17,7 @@ function getSessionKey() {
 const WELCOME = {
   role: 'assistant',
   content:
-    '你好，我是 Friday 🌙 你的企业知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
+    '你好，我是 Friday 🌙 你的知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
 }
 
 // 用 fetch + ReadableStream 解析后端 SSE（axios 不便做浏览器流式）

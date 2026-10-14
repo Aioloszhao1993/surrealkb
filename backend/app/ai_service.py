@@ -255,8 +255,8 @@ def _system_prompt(
 
     who = f"当前登录用户：{user.username}" if user else "当前为游客（未登录）"
     system = (
-        "你是「SurrealKB 企业知识库」的 AI 助手 Friday，回答专业、简洁、可靠。\n"
-        "用户会基于自己企业知识库里的文档提问，你要严格依据下面的『检索片段』作答。\n"
+        "你是「SurrealKB 知识库」的 AI 助手 Friday，回答专业、简洁、可靠。\n"
+        "用户会基于自己知识库里的文档提问，你要严格依据下面的『检索片段』作答。\n"
         f"{who}\n\n"
         f"检索片段（来自本知识库，按相关度排序）：\n{kb}\n\n"
         "回答要求：\n"
