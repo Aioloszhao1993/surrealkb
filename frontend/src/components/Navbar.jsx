@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store'
+import useWxStatus from '../useWxStatus'
 import AccountMenu from './AccountMenu'
 import WechatLogin from './WechatLogin'
 
@@ -8,6 +9,7 @@ export default function Navbar() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
   const [showWx, setShowWx] = useState(false)
+  const wxEnabled = useWxStatus()
   const nav = useNavigate()
 
   const search = (e) => {
@@ -47,9 +49,11 @@ export default function Navbar() {
           </>
         ) : (
           <>
-            <button className="btn ghost" onClick={() => setShowWx(true)}>
-              微信登录
-            </button>
+            {wxEnabled && (
+              <button className="btn ghost" onClick={() => setShowWx(true)}>
+                微信登录
+              </button>
+            )}
             <Link to="/login" className="btn ghost">
               登录
             </Link>

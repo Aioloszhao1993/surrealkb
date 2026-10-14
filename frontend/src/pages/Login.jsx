@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { errMsg } from '../api'
 import { useAuth } from '../store'
+import useWxStatus from '../useWxStatus'
 import WechatLogin from '../components/WechatLogin'
 
 export default function Login() {
   const { login } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
+  const wxEnabled = useWxStatus()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -55,13 +57,17 @@ export default function Login() {
         </button>
       </form>
 
-      <div className="divider">
-        <span>或</span>
-      </div>
+      {wxEnabled && (
+        <>
+          <div className="divider">
+            <span>或</span>
+          </div>
 
-      <button className="btn wechat block" onClick={() => setShowWx(true)}>
-        <span className="wx-logo">✆</span> 微信扫码登录
-      </button>
+          <button className="btn wechat block" onClick={() => setShowWx(true)}>
+            <span className="wx-logo">✆</span> 微信扫码登录
+          </button>
+        </>
+      )}
 
       <p className="auth-foot">
         还没有账号？<Link to="/register">免费注册</Link>

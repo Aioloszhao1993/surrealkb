@@ -46,16 +46,49 @@ def test_mode_priority(monkeypatch):
     assert settings.wechat_mode == "real"
 
 
+# ---------------------------------------------------------------- 能力查询（前端据此决定是否显示入口）
+def test_status_disabled_when_mock_off(client, monkeypatch):
+    """生产常见形态：没有凭据 + 关闭 Mock —— 前端不该显示微信登录按钮。"""
+    _as_mock(monkeypatch)
+    monkeypatch.setattr(settings, "enable_wechat_mock", False)
+    body = client.get("/api/auth/wx/status").json()
+    assert body["mode"] == "mock"
+    assert body["enabled"] is False
+
+
+def test_status_enabled_when_mp_configured(client, monkeypatch):
+    _as_mp(monkeypatch)
+    body = client.get("/api/auth/wx/status").json()
+    assert body["mode"] == "mp"
+    assert body["enabled"] is True
+
+
+def test_status_enabled_in_mock_mode_for_dev(client, monkeypatch):
+    """本地开发：Mock 开着，按钮应可见。"""
+    _as_mock(monkeypatch)
+    monkeypatch.setattr(settings, "enable_wechat_mock", True)
+    body = client.get("/api/auth/wx/status").json()
+    assert body["enabled"] is True
+
+
 # ---------------------------------------------------------------- 未配置：零回归
 def test_qrcode_stays_mock_when_unconfigured(client, monkeypatch):
     """没配任何凭据时必须仍走 Mock，不能因为本次改动把老功能弄坏。"""
     _as_mock(monkeypatch)
+    monkeypatch.setattr(settings, "enable_wechat_mock", True)
     r = client.get("/api/auth/wx/qrcode")
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["mode"] == "mock"
     assert body["qr"].startswith("data:image/png;base64,")
     assert body["state"]
+
+
+def test_qrcode_503_when_mock_off_and_unconfigured(client, monkeypatch):
+    """生产形态：没凭据且关了 Mock，二维码接口应 503（与改动前行为一致）。"""
+    _as_mock(monkeypatch)
+    monkeypatch.setattr(settings, "enable_wechat_mock", False)
+    assert client.get("/api/auth/wx/qrcode").status_code == 503
 
 
 def test_mp_bind_404_when_unconfigured(client, monkeypatch):

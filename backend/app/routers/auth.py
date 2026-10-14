@@ -169,6 +169,17 @@ def upload_avatar(
 
 
 # ---------------------------------------------------------------- 微信扫码登录
+@router.get("/wx/status")
+def wx_status() -> dict:
+    """前端据此决定要不要显示微信登录入口。
+
+    未配置凭据时（且 Mock 已关）不返回二维码，而是 503——前端若仍显示按钮，
+    用户点开只会看到一个报错。所以先问一句，别无脑渲染死按钮。
+    """
+    mode = settings.wechat_mode
+    return {"mode": mode, "enabled": mode != "mock" or settings.enable_wechat_mock}
+
+
 @router.get("/wx/qrcode")
 def wx_qrcode(db: Session = Depends(get_db)) -> dict:
     """创建一次扫码会话，返回二维码（data URL）与 state。
