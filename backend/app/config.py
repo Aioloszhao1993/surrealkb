@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     chunk_overlap: int = 120                  # 相邻分块重叠字符数
     allow_new_tenant: bool = True             # 是否允许注册时自动创建新知识库
 
+    # ---------- 反滥用 / 每日配额（防刷 AI 额度与磁盘）----------
+    # 每个用户每天最多问 AI 的次数（0 = 不限制）。直接决定你的百炼账单上限，务必设置。
+    ai_daily_quota_per_user: int = 200
+    # 全站每天最多 AI 提问次数（0 = 不限制）。作为总闸，防止被批量小号绕过单用户配额。
+    ai_daily_quota_global: int = 3000
+    # 每个用户每天最多上传文档次数（0 = 不限制）。
+    upload_daily_quota_per_user: int = 30
+    # 每个知识库最多容纳的文档数（0 = 不限制），防止塞满磁盘。
+    max_docs_per_tenant: int = 500
+    # 是否关闭注册（true = 只能由已有用户用邀请码加入，杜绝批量小号）。
+    disable_register: bool = False
+
     # ---------- 微信扫码登录（微信开放平台「网站应用」）----------
     # 留空则自动进入本地 Mock 模式（无需真实公众号即可演示）
     wechat_app_id: str = ""
@@ -88,6 +100,10 @@ class Settings(BaseSettings):
     @property
     def ai_enabled(self) -> bool:
         return bool(self.dashscope_api_key)
+
+    @property
+    def quota_enabled(self) -> bool:
+        return bool(self.ai_daily_quota_per_user or self.ai_daily_quota_global)
 
     @property
     def wechat_enabled(self) -> bool:

@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from .. import ai_service, doc_service, format_service
+from .. import ai_service, doc_service, format_service, quota
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
@@ -125,6 +125,21 @@ def upload_document(
     user: User = Depends(get_current_user),
 ) -> DocumentOut:
     tenant_id = _require_tenant(user)
+    # 反滥用：单用户每日上传上限 + 知识库文档总量上限
+    if settings.upload_daily_quota_per_user:
+        used = quota.user_upload_used_today(db, user.id)
+        if used >= settings.upload_daily_quota_per_user:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                f"今日上传已达上限（{settings.upload_daily_quota_per_user} 个），请明天再试",
+            )
+    if settings.max_docs_per_tenant:
+        total = quota.tenant_doc_count(db, tenant_id)
+        if total >= settings.max_docs_per_tenant:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                f"该知识库文档数已达上限（{settings.max_docs_per_tenant} 个），请先清理旧文档",
+            )
     new_title = (title or Path(file.filename or "未命名").stem)[:200]
     tag_list = _parse_tags(tags)
 

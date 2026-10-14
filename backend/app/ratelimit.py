@@ -18,13 +18,17 @@ from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 _HITS: dict[str, deque[float]] = defaultdict(deque)
 _LOCK = Lock()
 
-# 规则：路径前缀 -> (窗口秒数, 窗口内最大请求数)
+# 规则：路径前缀 -> (窗口秒数, 窗口内最大请求数)，仅对「写/贵」操作生效
+# 结构说明：RULES 仅作用于 METHODS 中列出的 HTTP 方法（默认只限 POST/PUT/PATCH/DELETE），
+# 避免把列表类 GET 也限掉。
+METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 RULES: list[tuple[str, int, int]] = [
     ("/api/auth/login", 60, 10),      # 登录：每分钟 10 次
     ("/api/auth/token", 60, 10),      # 表单登录：同上
-    ("/api/auth/register", 3600, 20),  # 注册：每小时 20 次
+    ("/api/auth/register", 3600, 20),  # 注册：每小时 20 次（防批量小号）
     ("/api/ai/chat", 60, 30),         # AI 问答：每分钟 30 次（防刷额度）
     ("/api/ai/reindex", 300, 10),     # 重建索引：每 5 分钟 10 次
+    ("/api/documents", 60, 30),       # 文档上传/操作：每分钟 30 次
 ]
 
 
@@ -58,7 +62,7 @@ def _hit(key: str, window: int, limit: int) -> tuple[bool, int]:
 
 async def rate_limit_middleware(request: Request, call_next):
     rule = _match(request.url.path)
-    if rule and request.method not in ("OPTIONS", "HEAD"):
+    if rule and request.method in METHODS:
         window, limit = rule
         key = f"{_client_ip(request)}:{request.url.path}"
         exceeded, _remaining = _hit(key, window, limit)
@@ -68,3 +72,9 @@ async def rate_limit_middleware(request: Request, call_next):
                 status_code=HTTP_429_TOO_MANY_REQUESTS,
             )
     return await call_next(request)
+
+
+def reset_all() -> None:
+    """清空进程内计数（测试/运维用）。"""
+    with _LOCK:
+        _HITS.clear()

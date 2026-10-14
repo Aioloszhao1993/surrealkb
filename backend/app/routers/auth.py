@@ -77,6 +77,12 @@ def _resolve_tenant(db: Session, payload: UserCreate) -> tuple[int | None, str]:
 
 @router.post("/register", response_model=Token)
 def register(payload: UserCreate, db: Session = Depends(get_db)) -> Token:
+    # 反滥用开关：关闭注册后，新用户只能凭邀请码由已有用户添加（杜绝批量小号刷额度）
+    if settings.disable_register:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "本站已关闭开放注册，请向管理员索取邀请码后再注册",
+        )
     _ensure_unique(db, payload.username, payload.email)
     tenant_id, role = _resolve_tenant(db, payload)
     user = User(
