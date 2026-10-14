@@ -6,6 +6,7 @@
 """
 from sqlalchemy import inspect, text
 
+from app import models  # noqa: F401  必须在 create_all 前导入，否则 Base.metadata 为空、一张表都不会建
 from app.database import Base, engine
 
 # 需要补齐的列： table -> [(列名, DDL片段)]
