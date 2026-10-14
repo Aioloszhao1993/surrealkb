@@ -1,4 +1,5 @@
 """认证：注册 / 登录 / 当前用户 / 头像 / 微信扫码登录。"""
+import base64
 import secrets
 import uuid
 from pathlib import Path
@@ -29,6 +30,7 @@ from ..schemas import (
     UserLogin,
     UserOut,
     WechatPollOut,
+    WxMpBindPayload,
 )
 from ..security import create_access_token, hash_password, verify_password
 
@@ -169,24 +171,82 @@ def upload_avatar(
 # ---------------------------------------------------------------- 微信扫码登录
 @router.get("/wx/qrcode")
 def wx_qrcode(db: Session = Depends(get_db)) -> dict:
-    """创建一次扫码会话，返回二维码（data URL）与 state。"""
-    real = settings.wechat_enabled
-    if not real and not settings.enable_wechat_mock:
+    """创建一次扫码会话，返回二维码（data URL）与 state。
+
+    模式优先级：real（开放平台网站应用）> mp（小程序码中转）> mock（本地模拟）。
+    """
+    mode = settings.wechat_mode
+    if mode == "mock" and not settings.enable_wechat_mock:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "微信登录未配置（缺少 WECHAT_APP_ID / WECHAT_APP_SECRET）",
+            "微信登录未配置（缺少 WECHAT_APP_ID / WX_MP_APP_ID 等凭据）",
         )
-    row = wechat_service.create_login_state(db, "real" if real else "mock")
-    if real:
+
+    if mode == "mp":
+        # 小程序模式：ticket 直接作为 state，scene 与轮询用的 state 合一，少一层映射
+        ticket = wechat_service.new_mp_ticket()
+        row = wechat_service.create_login_state(db, "mp", state=ticket)
+        try:
+            png = wechat_service.fetch_mp_qrcode_png(db, row.state)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                f"小程序码生成失败：{exc}",
+            ) from exc
+        b64 = base64.b64encode(png).decode("ascii")
+        return {
+            "state": row.state,
+            "mode": "mp",
+            "qr": f"data:image/png;base64,{b64}",
+            "expires_in": settings.wx_state_ttl_seconds,
+        }
+
+    row = wechat_service.create_login_state(db, "real" if mode == "real" else "mock")
+    if mode == "real":
         content = wechat_service.build_authorize_url(row.state)
     else:
         content = wechat_service.build_mock_scan_url(row.state)
     return {
         "state": row.state,
-        "mode": "real" if real else "mock",
+        "mode": mode,
         "qr": wechat_service.make_qr_data_url(content),
         "expires_in": settings.wx_state_ttl_seconds,
     }
+
+
+@router.post("/wx/mp/bind")
+def wx_mp_bind(payload: WxMpBindPayload, db: Session = Depends(get_db)) -> dict:
+    """小程序回调：用 ticket + wx.login 的 code 换取身份并确认登录。
+
+    由我们自己的小程序调用（wx.request），不是浏览器。
+    """
+    if not settings.wechat_mp_enabled:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
+
+    row = wechat_service.get_login_state(db, payload.state)
+    if not row or row.mode != "mp":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "二维码不存在或已失效")
+    if wechat_service._is_expired(row):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "二维码已过期，请刷新后重试")
+    if row.status == "confirmed":
+        # 幂等：小程序可能因网络抖动重试同一次请求
+        return {"ok": True, "already": True}
+
+    try:
+        data = wechat_service.exchange_code_for_openid_mp(payload.code)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"微信接口调用失败：{exc}") from exc
+
+    errcode = data.get("errcode")
+    if errcode or not data.get("openid"):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"微信授权失败：errcode={errcode} {data.get('errmsg', '')}",
+        )
+
+    user = wechat_service.create_mp_user(db, data["openid"], payload.nickname)
+    _finish_login(db, row.state, user)
+    return {"ok": True, "nickname": user.username}
 
 
 @router.get("/wx/poll", response_model=WechatPollOut)

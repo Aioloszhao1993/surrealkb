@@ -1,0 +1,99 @@
+/* 登录页：与主站一致的深色霓虹风格 */
+page {
+  background: radial-gradient(circle at 20% 20%, #2a1055, #0a0618 60%, #05030d);
+  min-height: 100vh;
+}
+
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  width: 100%;
+  padding: 72rpx 56rpx;
+  border-radius: 40rpx;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(155, 89, 255, 0.35);
+  box-shadow: 0 0 120rpx rgba(155, 89, 255, 0.25);
+}
+
+.brand {
+  font-size: 32rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
+  color: #b79dff;
+  margin-bottom: 48rpx;
+}
+
+.icon {
+  width: 140rpx;
+  height: 140rpx;
+  line-height: 140rpx;
+  margin: 0 auto 36rpx;
+  border-radius: 50%;
+  font-size: 64rpx;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #9b59ff, #00e5ff);
+}
+
+.icon.success {
+  background: linear-gradient(135deg, #34ffab, #00e5ff);
+  color: #04120d;
+}
+
+.icon.error {
+  background: linear-gradient(135deg, #ff5c6c, #ff9f45);
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #f0ecff;
+  margin-bottom: 20rpx;
+}
+
+.desc {
+  font-size: 26rpx;
+  line-height: 1.8;
+  color: #a99fd0;
+}
+
+.detail {
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: #7f76a8;
+  word-break: break-all;
+}
+
+.btn {
+  margin-top: 48rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 24rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #9b59ff, #00e5ff);
+  border: none;
+}
+
+.btn::after {
+  border: none;
+}
+
+.btn-hover {
+  opacity: 0.85;
+}
+
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #c9bfff;
+  border: 1rpx solid rgba(155, 89, 255, 0.4);
+}

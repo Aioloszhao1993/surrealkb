@@ -64,3 +64,7 @@ reload_*_test.txt
 .vscode/
 .DS_Store
 Thumbs.db
+
+# ---------- 小程序（微信开发者工具生成的本地私有配置/产物）----------
+miniprogram/project.private.config.json
+miniprogram/node_modules/

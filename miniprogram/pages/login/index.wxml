@@ -1,0 +1,29 @@
+<view class="wrap">
+  <view class="card">
+    <view class="brand">SurrealKB</view>
+
+    <view class="icon {{status}}">
+      <text wx:if="{{status === 'loading'}}">⋯</text>
+      <text wx:elif="{{status === 'success'}}">✓</text>
+      <text wx:else>!</text>
+    </view>
+
+    <view class="title">{{title}}</view>
+    <view class="desc">{{desc}}</view>
+    <view class="detail" wx:if="{{detail}}">{{detail}}</view>
+
+    <button
+      wx:if="{{status === 'error'}}"
+      class="btn"
+      hover-class="btn-hover"
+      bindtap="retry"
+    >重试</button>
+
+    <button
+      wx:if="{{status === 'success' || status === 'noscan'}}"
+      class="btn ghost"
+      hover-class="btn-hover"
+      bindtap="close"
+    >关闭</button>
+  </view>
+</view>

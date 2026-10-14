@@ -72,6 +72,21 @@ class Settings(BaseSettings):
     # 是否开放 /api/auth/wx/virtual（一键虚拟登录，无任何鉴权）。**仅本地开发**，生产必须关闭。
     enable_virtual_login: bool = False
 
+    # ---------- 微信扫码登录（个人主体方案：小程序码中转）----------
+    # 个人主体无法申请开放平台「网站应用」，改用小程序解出带参小程序码做登录跳板。
+    # 留空则回到 Mock 模式。三项模式优先级：real(网站应用) > mp(小程序) > mock。
+    wx_mp_app_id: str = ""
+    wx_mp_app_secret: str = ""
+    # 小程序码指向的页面路径（必须是已存在且已发布的页面，不能以 / 开头、不能带参数）
+    wx_mp_page: str = "pages/login/index"
+    # 小程序码版本：release 正式版 / trial 体验版 / develop 开发版
+    # 开发期页面还没发布时，用 trial 配合下方的 check_path=false 可以先生成码
+    wx_mp_env_version: str = "release"
+    # 是否校验 page 路径存在。页面尚未发布时必须设为 false，否则接口返回 41030
+    wx_mp_check_path: bool = True
+    # scene 场景值最大 32 字符，登录票据固定用 16 字节 hex（正好 32 字符）
+    wx_mp_ticket_bytes: int = 16
+
     # ---------- AI（阿里云百炼 / DashScope，OpenAI 兼容模式）----------
     dashscope_api_key: str = ""
     dashscope_base: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -108,6 +123,20 @@ class Settings(BaseSettings):
     @property
     def wechat_enabled(self) -> bool:
         return bool(self.wechat_app_id and self.wechat_app_secret)
+
+    @property
+    def wechat_mp_enabled(self) -> bool:
+        """小程序扫码登录是否可用（需 AppID + AppSecret）。"""
+        return bool(self.wx_mp_app_id and self.wx_mp_app_secret)
+
+    @property
+    def wechat_mode(self) -> str:
+        """当前微信登录模式：real（网站应用）/ mp（小程序）/ mock（本地模拟）。"""
+        if self.wechat_enabled:
+            return "real"
+        if self.wechat_mp_enabled:
+            return "mp"
+        return "mock"
 
     @property
     def database_url(self) -> str:

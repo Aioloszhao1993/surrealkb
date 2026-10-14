@@ -33,6 +33,15 @@ class WechatPollOut(BaseModel):
     user: "UserOut | None" = None
 
 
+class WxMpBindPayload(BaseModel):
+    """小程序扫码回调：scene(票据) + wx.login 的 code。"""
+
+    state: str = Field(min_length=8, max_length=64)
+    code: str = Field(min_length=8, max_length=128)
+    # 可选：小程序侧让用户填的昵称（可空，空则自动生成「微信用户」）
+    nickname: str | None = Field(default=None, max_length=40)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

@@ -181,13 +181,33 @@ class WxLoginState(Base):
 
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
     state: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    mode: Mapped[str] = mapped_column(String(8), default="mock")  # mock / real
+    # mock = 本地模拟 / real = 开放平台网站应用 / mp = 小程序码中转
+    mode: Mapped[str] = mapped_column(String(8), default="mock")
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# ---------------------------------------------------------------- 小程序 access_token 缓存
+class WxMpToken(Base):
+    """微信接口调用凭据缓存。
+
+    access_token 有效期 2 小时，且微信对获取频率有限制——每次生成小程序码
+    都重新取会被限流，所以必须落库复用。重启服务也不会白费一次调用。
+    """
+
+    __tablename__ = "wx_mp_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    appid: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    access_token: Mapped[str] = mapped_column(String(512))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 # ---------------------------------------------------------------- AI 会话消息

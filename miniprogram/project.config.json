@@ -1,0 +1,22 @@
+{
+  "description": "SurrealKB 登录跳板小程序（扫码登录中转用）",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true,
+    "bigPackageSizeSupport": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.5.5",
+  "appid": "wx0000000000000000",
+  "projectname": "SurrealKB-Login",
+  "miniprogramRoot": "./",
+  "condition": {}
+}

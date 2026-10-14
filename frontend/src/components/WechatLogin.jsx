@@ -118,6 +118,8 @@ export default function WechatLogin({ onClose, onDone }) {
               （手机扫码更真实）。
             </span>
           </div>
+        ) : mode === 'mp' ? (
+          <p className="wx-tip">请用微信扫一扫，扫码后在小程序里点「确认登录」</p>
         ) : (
           <p className="wx-tip">请使用微信扫描二维码，并在手机上确认登录</p>
         )}
@@ -125,22 +127,25 @@ export default function WechatLogin({ onClose, onDone }) {
         {err && <div className="alert">{err}</div>}
 
         <div className="wx-actions">
-          <button
-            className="btn ghost"
-            onClick={async () => {
-              // 一键虚拟扫码：无需扫码，直接生成一个微信风格用户
-              try {
-                const { data } = await api.get('/auth/wx/virtual')
-                applyToken(data.access_token, data.user)
-                onDone?.(data.user)
-                onClose?.()
-              } catch (e) {
-                setErr(e?.response?.data?.detail || '虚拟登录失败')
-              }
-            }}
-          >
-            ⚡ 模拟一键登录
-          </button>
+          {/* 虚拟登录接口仅本地开发开放（生产返回 404），非 Mock 模式就不显示入口 */}
+          {mode === 'mock' && (
+            <button
+              className="btn ghost"
+              onClick={async () => {
+                // 一键虚拟扫码：无需扫码，直接生成一个微信风格用户
+                try {
+                  const { data } = await api.get('/auth/wx/virtual')
+                  applyToken(data.access_token, data.user)
+                  onDone?.(data.user)
+                  onClose?.()
+                } catch (e) {
+                  setErr(e?.response?.data?.detail || '虚拟登录失败')
+                }
+              }}
+            >
+              ⚡ 模拟一键登录
+            </button>
+          )}
           <button className="btn ghost" onClick={load}>
             刷新二维码
           </button>
