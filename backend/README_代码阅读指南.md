@@ -145,13 +145,13 @@ cd D:\surreal_kb\backend
 ## 四、一个请求的完整链路（例子：向知识库提问）
 
 ```
-前端 POST /api/ai/chat  { question, session_key }  (Authorization: Bearer <token>)
+前端 POST /api/ai/chat  { question }  (Authorization: Bearer <token> + X-Session-Key: <前端生成>)
   → main.py 交给 ai.router
-  → Depends(get_current_user_optional) 解出用户（游客为 None）
+  → Depends(get_current_user) 强制登录；Depends(get_session_key) 校验请求头
   → ai_service.chat()
       → _system_prompt() → search_chunks()   # 向量 0.55 + BM25 0.45，租户内 Top-K
       → 调百炼 /chat/completions（qwen-plus）
-      → 落库 ChatMessage(user + assistant)
+      → 落库 ChatMessage(user + assistant，按 user_id + session_key 隔离)
   → 返回 { answer, sources:[{document_id,title,score,snippet}], session_key }
 ```
 

@@ -98,8 +98,8 @@ def main() -> int:
     print("\n=== 6. 知识库问答（带出处）===")
     r = client.post(
         "/api/ai/chat",
-        headers=auth(tok),
-        json={"question": "出差住宿费一晚最多能报销多少？", "session_key": f"s_{sfx}"},
+        headers={**auth(tok), "X-Session-Key": f"s_{sfx}"},
+        json={"question": "出差住宿费一晚最多能报销多少？"},
     )
     check(r.status_code == 200, f"chat 200 ({r.status_code}) {r.text[:160]}")
     if r.status_code == 200:
@@ -128,8 +128,8 @@ def main() -> int:
     check(r.status_code == 200, "再次 reindex")
     r = client.post(
         "/api/ai/chat",
-        headers=auth(tok),
-        json={"question": "入职多久可以享受年假？", "session_key": f"s2_{sfx}"},
+        headers={**auth(tok), "X-Session-Key": f"s2_{sfx}"},
+        json={"question": "入职多久可以享受年假？"},
     )
     if r.status_code == 200:
         ans = r.json()["answer"]
@@ -149,8 +149,8 @@ def main() -> int:
     check(r.json()["total"] == 0, f"跨租户列表为空 ({r.json().get('total')})")
     r = client.post(
         "/api/ai/chat",
-        headers=auth(tok2),
-        json={"question": "住宿费报销多少？", "session_key": f"o_{sfx}"},
+        headers={**auth(tok2), "X-Session-Key": f"o_{sfx}"},
+        json={"question": "住宿费报销多少？"},
     )
     if r.status_code == 200:
         check(len(r.json()["sources"]) == 0, "跨租户检索无结果")
@@ -211,8 +211,8 @@ def main() -> int:
     client.post("/api/ai/reindex", headers=auth(tok))
     r = client.post(
         "/api/ai/chat",
-        headers=auth(tok),
-        json={"question": "一线城市住宿费一晚最多报销多少？", "session_key": f"s3_{sfx}"},
+        headers={**auth(tok), "X-Session-Key": f"s3_{sfx}"},
+        json={"question": "一线城市住宿费一晚最多报销多少？"},
     )
     if r.status_code == 200:
         ans = r.json()["answer"]

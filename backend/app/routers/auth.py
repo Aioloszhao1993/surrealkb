@@ -165,6 +165,11 @@ def upload_avatar(
 def wx_qrcode(db: Session = Depends(get_db)) -> dict:
     """创建一次扫码会话，返回二维码（data URL）与 state。"""
     real = settings.wechat_enabled
+    if not real and not settings.enable_wechat_mock:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "微信登录未配置（缺少 WECHAT_APP_ID / WECHAT_APP_SECRET）",
+        )
     row = wechat_service.create_login_state(db, "real" if real else "mock")
     if real:
         content = wechat_service.build_authorize_url(row.state)
@@ -232,6 +237,8 @@ _MOCK_DONE = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 @router.get("/wx/mock", response_class=HTMLResponse)
 def wx_mock_scan(state: str = Query(...), db: Session = Depends(get_db)) -> HTMLResponse:
     """Mock 模式：二维码打开的就是这个页面（模拟手机端）。"""
+    if not settings.enable_wechat_mock:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
     if not wechat_service.get_login_state(db, state):
         return HTMLResponse("<h3>二维码已失效，请刷新页面重试</h3>", status_code=400)
     return HTMLResponse(_MOCK_PAGE.format(state=state))
@@ -239,6 +246,8 @@ def wx_mock_scan(state: str = Query(...), db: Session = Depends(get_db)) -> HTML
 
 @router.get("/wx/mock/confirm", response_class=HTMLResponse)
 def wx_mock_confirm(state: str = Query(...), db: Session = Depends(get_db)) -> HTMLResponse:
+    if not settings.enable_wechat_mock:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
     row = wechat_service.get_login_state(db, state)
     if not row or row.mode != "mock":
         return HTMLResponse("<h3>二维码已失效</h3>", status_code=400)
@@ -272,7 +281,12 @@ def wx_callback(code: str = Query(...), state: str = Query(...), db: Session = D
 
 @router.get("/wx/virtual")
 def wx_virtual(nickname: str | None = Query(None), db: Session = Depends(get_db)) -> dict:
-    """虚拟扫码：开发者/演示一键生成微信用户（不需要扫码）。"""
+    """虚拟扫码：开发者/演示一键生成微信用户（无需扫码）。
+
+    ⚠️ 无任何鉴权，仅本地开发使用；生产必须保持 ENABLE_VIRTUAL_LOGIN=false（默认）。
+    """
+    if not settings.enable_virtual_login:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
     user = wechat_service.create_mock_user(db, nickname)
     suffix = secrets.token_hex(3)
     return {

@@ -151,7 +151,7 @@ useEffect(() => {
 - **面板**（`.ai-panel`）：头部（标题 + 清空 + 关闭）、消息区、输入框。
 - **打字机效果**：后端返整段答案后，前端逐字吐出（`setInterval` 切片）。
 - **引用胶囊**：`data.sources` 渲染成一排小胶囊，点击跳 `/doc/{document_id}`。
-- **会话保持**：`session_key` 用 `useRef` 生成一次并写 localStorage，刷新后点开还能看到历史（`GET /api/ai/history/{key}`）。
+- **会话保持**：`session_key` 用 `useRef` 生成一次并写 localStorage，刷新后点开还能看到历史；该标识改用 `X-Session-Key` 请求头传递给后端（不再拼进 URL），后端按「用户 + 会话」双重隔离。未登录时点「问问 AI」会提示先登录。
 - **外部唤起**：监听 `window` 的 `ai-ask` 自定义事件。文档详情页的「✦ 问问 AI」按钮就是派发该事件，面板自动打开并提问。
 - **开关联动**：挂载时探一次 `/api/ai/status`，后端没配 Key（`enabled:false`）就不渲染入口。
 

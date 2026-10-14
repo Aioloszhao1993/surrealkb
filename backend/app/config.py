@@ -1,9 +1,16 @@
 """应用配置：从环境变量 / .env 读取。"""
+import warnings
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # backend/
+
+# 明显不安全的密钥值（默认值/占位符）
+_WEAK_KEYS = {"", "change-me", "changeme", "change_me", "secret", "secret-key",
+              "your-secret-key", "xxx", "test"}
+_MIN_SECRET_LEN = 16
 
 
 class Settings(BaseSettings):
@@ -13,7 +20,10 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "SurrealKB"
-    secret_key: str = "change-me"
+    # 必须显式设置（backend/.env 的 SECRET_KEY）。留空/过弱将拒绝启动，避免 JWT 被伪造。
+    secret_key: str = ""
+    # 仅本地临时调试可设 true 放行弱密钥（会打印醒目警告）。生产务必保持 false。
+    allow_insecure_secret: bool = False
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
@@ -43,6 +53,10 @@ class Settings(BaseSettings):
     wechat_redirect_uri: str = "http://localhost:8000/api/auth/wx/callback"
     public_base_url: str = "http://localhost:8000"
     wx_state_ttl_seconds: int = 600
+    # 是否允许「无真实 AppID 时的模拟扫码登录」（本地开发用）。生产环境应关闭。
+    enable_wechat_mock: bool = True
+    # 是否开放 /api/auth/wx/virtual（一键虚拟登录，无任何鉴权）。**仅本地开发**，生产必须关闭。
+    enable_virtual_login: bool = False
 
     # ---------- AI（阿里云百炼 / DashScope，OpenAI 兼容模式）----------
     dashscope_api_key: str = ""
@@ -51,6 +65,23 @@ class Settings(BaseSettings):
     ai_embed_model: str = "text-embedding-v3"
     ai_embed_dim: int = 1024
     ai_top_k: int = 4
+
+    @model_validator(mode="after")
+    def _guard_secret_key(self) -> "Settings":
+        key = (self.secret_key or "").strip()
+        weak = key.lower() in _WEAK_KEYS or len(key) < _MIN_SECRET_LEN
+        if weak and not self.allow_insecure_secret:
+            raise ValueError(
+                "SECRET_KEY 未设置或过弱：请在 backend/.env 设置一个随机长字符串，例如："
+                '  python -c "import secrets;print(secrets.token_hex(32))"\n'
+                "（仅本地临时调试可设 ALLOW_INSECURE_SECRET=true 绕过，生产禁用）"
+            )
+        if weak and self.allow_insecure_secret:
+            warnings.warn(
+                "[安全警告] SECRET_KEY 过弱，ALLOW_INSECURE_SECRET=true 仅供本地开发，切勿用于生产！",
+                stacklevel=2,
+            )
+        return self
 
     @property
     def ai_enabled(self) -> bool:

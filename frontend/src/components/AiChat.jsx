@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errMsg } from '../api'
+import { useAuth } from '../store'
 
 const SESSION_KEY = 'ai_session_key'
 
@@ -19,6 +20,7 @@ const WELCOME = {
 }
 
 export default function AiChat() {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [enabled, setEnabled] = useState(true)
   const [input, setInput] = useState('')
@@ -26,6 +28,9 @@ export default function AiChat() {
   const [msgs, setMsgs] = useState([WELCOME])
   const boxRef = useRef(null)
   const sessionKey = useRef(getSessionKey())
+
+  // 会话标识改由请求头携带（后端据此隔离聊天历史，不再暴露在 URL 里）
+  const skHeaders = () => ({ headers: { 'X-Session-Key': sessionKey.current } })
 
   // 探测后端 AI 是否可用；不可用则不显示入口
   useEffect(() => {
@@ -50,16 +55,16 @@ export default function AiChat() {
 
   // 打开时拉取历史
   useEffect(() => {
-    if (!open) return
+    if (!open || !user) return
     api
-      .get(`/ai/history/${sessionKey.current}`)
+      .get('/ai/history', skHeaders())
       .then(({ data }) => {
         if (data.items?.length) {
           setMsgs([WELCOME, ...data.items.map((m) => ({ role: m.role, content: m.content }))])
         }
       })
       .catch(() => {})
-  }, [open])
+  }, [open, user])
 
   useEffect(() => {
     const el = boxRef.current
@@ -69,10 +74,19 @@ export default function AiChat() {
   const ask = async (q) => {
     const text = (q || '').trim()
     if (!text || busy) return
+    if (!user) {
+      setOpen(true)
+      setMsgs((m) => [
+        ...m,
+        { role: 'user', content: text },
+        { role: 'assistant', content: '请先登录后再使用 AI 助手（可在右上角登录）。', error: true },
+      ])
+      return
+    }
     setMsgs((m) => [...m, { role: 'user', content: text }])
     setBusy(true)
     try {
-      const { data } = await api.post('/ai/chat', { question: text, session_key: sessionKey.current })
+      const { data } = await api.post('/ai/chat', { question: text }, skHeaders())
       setMsgs((m) => [...m, { role: 'assistant', content: data.answer, sources: data.sources }])
     } catch (e) {
       setMsgs((m) => [...m, { role: 'assistant', content: '⚠️ ' + errMsg(e), error: true }])
@@ -90,7 +104,7 @@ export default function AiChat() {
 
   const clear = async () => {
     try {
-      await api.delete(`/ai/history/${sessionKey.current}`)
+      await api.delete('/ai/history', skHeaders())
     } catch {
       /* ignore */
     }

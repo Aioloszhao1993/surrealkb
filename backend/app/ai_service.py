@@ -291,6 +291,7 @@ def chat(
         db.scalars(
             select(ChatMessage)
             .where(ChatMessage.session_key == session_key)
+            .where(ChatMessage.user_id == (user.id if user else None))
             .order_by(ChatMessage.id.desc())
             .limit(history_limit)
         )
@@ -334,19 +335,20 @@ def chat(
     return {"answer": answer, "sources": sources, "session_key": session_key}
 
 
-def get_history(db: Session, session_key: str, limit: int = 50) -> list[ChatMessage]:
-    return list(
-        db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.session_key == session_key)
-            .order_by(ChatMessage.id.asc())
-            .limit(limit)
-        )
-    )
+def get_history(
+    db: Session, session_key: str, limit: int = 50, user_id: int | None = None
+) -> list[ChatMessage]:
+    stmt = select(ChatMessage).where(ChatMessage.session_key == session_key)
+    if user_id is not None:
+        stmt = stmt.where(ChatMessage.user_id == user_id)
+    return list(db.scalars(stmt.order_by(ChatMessage.id.asc()).limit(limit)))
 
 
-def clear_history(db: Session, session_key: str) -> int:
-    rows = list(db.scalars(select(ChatMessage).where(ChatMessage.session_key == session_key)))
+def clear_history(db: Session, session_key: str, user_id: int | None = None) -> int:
+    stmt = select(ChatMessage).where(ChatMessage.session_key == session_key)
+    if user_id is not None:
+        stmt = stmt.where(ChatMessage.user_id == user_id)
+    rows = list(db.scalars(stmt))
     for r in rows:
         db.delete(r)
     db.commit()

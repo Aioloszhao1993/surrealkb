@@ -186,7 +186,7 @@ npm run dev
 | POST | `/api/auth/avatar` | 上传自定义头像（multipart，≤5MB） |
 | GET | `/api/auth/wx/qrcode` | 微信扫码：生成二维码 + state |
 | GET | `/api/auth/wx/poll?state=` | 微信扫码：轮询状态（成功返回 token） |
-| GET | `/api/auth/wx/virtual` | 一键虚拟扫码登录（演示用） |
+| GET | `/api/auth/wx/virtual` | 一键虚拟扫码登录（**演示后门**，仅 `ENABLE_VIRTUAL_LOGIN=true` 时可用，生产必须关闭） |
 | GET | `/api/auth/wx/callback` | 微信授权回调（真实模式） |
 
 ### 知识库（租户）
@@ -232,9 +232,9 @@ npm run dev
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/ai/status` | 是否启用 + 已索引分块数 |
-| POST | `/api/ai/chat` | 提问（`question` + 可选 `session_key`）→ 答案 + 出处 |
-| GET | `/api/ai/history/{session_key}` | 拉取历史 |
-| DELETE | `/api/ai/history/{session_key}` | 清空历史 |
+| POST | `/api/ai/chat` | 提问（**需登录**；body `{question}`，会话标识经 `X-Session-Key` 头携带）→ 答案 + 出处 |
+| GET | `/api/ai/history` | 拉取当前会话历史（**需登录** + `X-Session-Key`） |
+| DELETE | `/api/ai/history` | 清空当前会话历史（**需登录** + `X-Session-Key`） |
 | POST | `/api/ai/reindex?force=true` | 重建 / 补齐当前知识库的分块向量 |
 
 ---
@@ -316,8 +316,8 @@ AI_TOP_K=4
 2. **后端**：`uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4`（或用 gunicorn + uvicorn worker）。
 3. **大文件上传**：Nginx 需放宽 `client_max_body_size`（如 `client_max_body_size 64m;`）。
 4. **迁移**：当前用 `create_all` + `migrate.py`；正式项目建议接入 Alembic。
-5. **安全**：务必替换 `SECRET_KEY`；生产环境限制 `CORS_ORIGINS`；为 `sv_user` 设置强密码。
-6. **多 worker 注意**：AI 索引用的进程内锁在多 worker 下失效，需改用 DB 层锁或独立索引进程。
+5. **安全**：`SECRET_KEY` 留空或过弱会**拒绝启动**（可用 `ALLOW_INSECURE_SECRET=true` 临时绕过，仅限本地）；生产环境限制 `CORS_ORIGINS`；为 `sv_user` 设置强密码；**务必设 `ENABLE_VIRTUAL_LOGIN=false`（并关闭 `ENABLE_WECHAT_MOCK`）**，否则 `/api/auth/wx/virtual` 后门可被任何人一键登录。
+6. **多 worker 注意**：AI 索引用的进程内锁与限流器均为单进程实现，多 worker 下失效，需改用 DB 层锁 / Redis。
 
 ---
 
@@ -327,7 +327,10 @@ AI_TOP_K=4
 - 文档**支持「原文样式」预览**：Word（mammoth 转 HTML，保留标题/列表/表格/加粗）、Markdown（轻量渲染）、PDF（iframe 内嵌）、TXT（等宽）；详情页还有纯文本与分块视图。
 - 转发 / 评论 / 弹幕等功能未包含（保持「更简单」的定位）。
 - AI 依赖外部百炼接口，离线环境不可用；embedding 是网络调用，首次启动会在后台补齐现有文档的向量。
-- 微信登录未配置 AppID 时为 Mock，仅用于本地/演示；上线需接入真实网站应用。`/api/auth/wx/virtual` 是演示后门，**生产环境应移除或加保护**。
+- 微信登录未配置 AppID 时为 Mock，仅用于本地/演示；上线需接入真实网站应用。
+- **开关型安全项**（在 `backend/.env`）：`ENABLE_VIRTUAL_LOGIN`（默认 `.env` 本地为 `true`，生产改 `false`）、`ENABLE_WECHAT_MOCK`（生产 `false`）、`ALLOW_INSECURE_SECRET`（生产 `false`）。
+- **AI 接口需登录**：`/api/ai/chat`、`/api/ai/history`、`/api/ai/reindex` 均要求登录；聊天会话标识由 `X-Session-Key` 请求头携带（前端自动生成并持久化在 localStorage），历史按「用户 + 会话」双重隔离。
+- **内置限流**（`app/ratelimit.py`，进程内滑动窗口）：登录 10 次/分、注册 20 次/时、AI 问答 30 次/分、重建索引 10 次/5 分；超出返回 HTTP 429。多 worker 部署需改用 Redis。
 
 ---
 

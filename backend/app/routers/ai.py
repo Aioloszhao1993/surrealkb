@@ -1,16 +1,18 @@
 """AI 问答路由：/api/ai/chat 等。
 
 前端右下角悬浮的「AI 助手」会调这里的接口，检索范围 = 当前用户所属知识库。
+安全说明：
+- chat / history / clear 均 require 登录（避免匿名刷百炼额度）。
+- 会话标识由前端通过 X-Session-Key 请求头携带，服务端不再从 query/body 取，
+  避免「知道别人的 session_key 就能读/删其聊天记录」。
 """
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import ai_service
 from ..database import get_db
-from ..deps import get_current_user_optional
+from ..deps import get_current_user, get_current_user_optional, get_session_key
 from ..models import Chunk, User
 from ..schemas import ChatIn, ChatOut
 
@@ -18,7 +20,9 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 
 @router.get("/status")
-def ai_status(db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)) -> dict:
+def ai_status(
+    db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)
+) -> dict:
     """前端用它判断要不要展示 AI 入口。"""
     stmt = select(func.count()).select_from(Chunk).where(Chunk.vector.isnot(None))
     if user and user.tenant_id:
@@ -35,14 +39,14 @@ def ai_status(db: Session = Depends(get_db), user: User | None = Depends(get_cur
 def ai_chat(
     payload: ChatIn,
     db: Session = Depends(get_db),
-    user: User | None = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
+    session_key: str = Depends(get_session_key),
 ) -> ChatOut:
     if not ai_service.ai_ready():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "AI 未配置：请在 backend/.env 填写 DASHSCOPE_API_KEY",
         )
-    session_key = payload.session_key or uuid.uuid4().hex
     try:
         result = ai_service.chat(db, payload.question, session_key, user)
     except Exception as exc:  # noqa: BLE001
@@ -50,13 +54,14 @@ def ai_chat(
     return ChatOut(**result)
 
 
-@router.get("/history/{session_key}")
+@router.get("/history")
 def ai_history(
-    session_key: str,
-    limit: int = 50,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    session_key: str = Depends(get_session_key),
+    limit: int = 50,
 ) -> dict:
-    rows = ai_service.get_history(db, session_key, limit)
+    rows = ai_service.get_history(db, session_key, limit, user_id=user.id)
     return {
         "items": [
             {"id": r.id, "role": r.role, "content": r.content, "created_at": r.created_at}
@@ -65,9 +70,13 @@ def ai_history(
     }
 
 
-@router.delete("/history/{session_key}")
-def ai_clear(session_key: str, db: Session = Depends(get_db)) -> dict:
-    n = ai_service.clear_history(db, session_key)
+@router.delete("/history")
+def ai_clear(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    session_key: str = Depends(get_session_key),
+) -> dict:
+    n = ai_service.clear_history(db, session_key, user_id=user.id)
     return {"deleted": n}
 
 

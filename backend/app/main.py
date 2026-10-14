@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .database import Base, engine, SessionLocal
+from .ratelimit import rate_limit_middleware
 from .routers import ai, auth, documents, tenants, users
 
 # 静态目录必须在挂载前存在（StaticFiles 在实例化时即校验路径）
@@ -41,12 +42,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
 
+# 简易限流：登录/注册/AI 问答等高频接口（进程内滑动窗口）。
+# Starlette 中「后添加的中间件在最外层」。这里先注册限流、后添加 CORS，
+# 使 CORS 处于最外层，限流返回 429 时也会带上 CORS 头（浏览器才能读到错误信息）。
+app.middleware("http")(rate_limit_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # 收敛为实际用到的方法与请求头（关闭原先的 "*" 全开放）
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Session-Key"],
     # 暴露下载文件名给前端（跨域时默认读不到 Content-Disposition）
     expose_headers=["Content-Disposition"],
 )
