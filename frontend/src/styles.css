@@ -600,6 +600,19 @@ button { font-family: inherit; cursor: pointer; }
 .doc-status.pending { color: #ffd479; border-color: rgba(255,212,121,.45); }
 .doc-status.failed { color: #ff8fa3; border-color: rgba(255,143,163,.45); }
 .doc-meta { gap: 8px; font-size: 12px; color: var(--fg-soft, #aab0d0); }
+.doc-uploader {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid rgba(155,89,255,.14); font-size: 12px;
+}
+.doc-uploader .uploader-label { color: var(--faint, #7a80a0); }
+.doc-uploader .uploader-link {
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  color: #cbd5ff; min-width: 0;
+}
+.doc-uploader .uploader-link:hover .uploader-name { color: #fff; text-decoration: underline; }
+.doc-uploader .uploader-name {
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* 文档详情 */
 .doc-detail { max-width: 900px; margin: 0 auto; }

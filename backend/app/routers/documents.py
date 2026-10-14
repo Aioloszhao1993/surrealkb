@@ -16,7 +16,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import ai_service, doc_service, format_service
 from ..config import settings
@@ -182,9 +182,7 @@ def upload_document(
     # 后台补向量（不阻塞响应）
     ai_service.index_document_bg(doc.id)
 
-    out = DocumentOut.model_validate(doc)
-    out.owner = None
-    return out
+    return DocumentOut.model_validate(doc)
 
 
 @router.get("", response_model=DocumentPage)
@@ -212,7 +210,10 @@ def list_documents(
 
     total = db.scalar(count_stmt) or 0
     rows = db.scalars(
-        stmt.order_by(Document.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        stmt.order_by(Document.created_at.desc())
+        .options(selectinload(Document.owner))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     ).all()
     return DocumentPage(
         items=[DocumentOut.model_validate(r) for r in rows],
@@ -227,6 +228,8 @@ def get_document(
     doc_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ) -> DocumentOut:
     doc = _get_doc(doc_id, db, user)
+    # 预取上传者，避免展示时再逐条查询
+    db.refresh(doc, attribute_names=["owner"])
     return DocumentOut.model_validate(doc)
 
 
@@ -338,9 +341,7 @@ def edit_document(
     # 4) 后台为新的分块补向量
     ai_service.index_document_bg(doc.id)
 
-    out = DocumentOut.model_validate(doc)
-    out.owner = None
-    return out
+    return DocumentOut.model_validate(doc)
 
 
 @router.get("/{doc_id}/revisions", response_model=list[DocumentRevisionOut])
@@ -415,9 +416,7 @@ def restore_revision(
     db.refresh(doc)
 
     ai_service.index_document_bg(doc.id)
-    out = DocumentOut.model_validate(doc)
-    out.owner = None
-    return out
+    return DocumentOut.model_validate(doc)
 
 
 @router.patch("/{doc_id}", response_model=DocumentOut)

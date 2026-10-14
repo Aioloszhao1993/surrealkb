@@ -104,6 +104,8 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="documents")
+    # 上传者（用于前端展示「由谁上传」）
+    owner: Mapped["User | None"] = relationship(foreign_keys=[owner_id])
     chunks: Mapped[list["Chunk"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )

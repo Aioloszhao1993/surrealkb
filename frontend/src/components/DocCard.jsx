@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { num } from './format'
+import Avatar from './Avatar'
+import HoverUser from './UserHoverCard'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
 const TYPE_ICON = { pdf: '📕', docx: '📘', txt: '📄', md: '📝' }
@@ -17,6 +19,7 @@ function sizeFmt(bytes) {
 }
 
 export default function DocCard({ doc }) {
+  const owner = doc.owner
   return (
     <div className={'card doc-card status-' + doc.status}>
       <Link to={`/doc/${doc.id}`} className="card-link">
@@ -35,6 +38,17 @@ export default function DocCard({ doc }) {
           <span className="sep" />
           <span>{num(doc.chunk_count)} 段</span>
         </div>
+        {owner && (
+          <div className="doc-uploader">
+            <span className="uploader-label">上传者</span>
+            <HoverUser user={owner}>
+              <Link to={`/user/${owner.id}`} className="uploader-link">
+                <Avatar user={owner} size="sm" />
+                <span className="uploader-name">{owner.username}</span>
+              </Link>
+            </HoverUser>
+          </div>
+        )}
       </div>
     </div>
   )
