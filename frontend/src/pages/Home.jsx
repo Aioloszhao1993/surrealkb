@@ -71,16 +71,6 @@ export default function Home() {
           把你的文档，变成<span className="accent">会答话</span>的知识库
         </h1>
         <p>上传 PDF / Word / TXT / Markdown，向 AI 提问，答案带原文出处。</p>
-        {!user && (
-          <div className="hero-cta">
-            <Link to="/register" className="btn primary">
-              免费创建知识库
-            </Link>
-            <Link to="/login" className="btn ghost">
-              已有账号，登录
-            </Link>
-          </div>
-        )}
       </section>
 
       {!user ? (

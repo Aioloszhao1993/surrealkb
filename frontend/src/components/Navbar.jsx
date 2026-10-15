@@ -1,15 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store'
-import useWxStatus from '../useWxStatus'
 import AccountMenu from './AccountMenu'
-import WechatLogin from './WechatLogin'
+import AuthModal from './AuthModal'
 
 export default function Navbar() {
   const { user } = useAuth()
   const [q, setQ] = useState('')
-  const [showWx, setShowWx] = useState(false)
-  const wxEnabled = useWxStatus()
+  const [showAuth, setShowAuth] = useState(false)
   const nav = useNavigate()
 
   const search = (e) => {
@@ -48,23 +46,14 @@ export default function Navbar() {
             <AccountMenu />
           </>
         ) : (
-          <>
-            {wxEnabled && (
-              <button className="btn ghost" onClick={() => setShowWx(true)}>
-                微信登录
-              </button>
-            )}
-            <Link to="/login" className="btn ghost">
-              登录
-            </Link>
-            <Link to="/register" className="btn primary">
-              免费使用
-            </Link>
-          </>
+          // 未登录时只留这一个入口：账号登录 / 微信扫码 / 免费注册都在弹窗里
+          <button className="btn primary" onClick={() => setShowAuth(true)}>
+            登录
+          </button>
         )}
       </nav>
 
-      {showWx && <WechatLogin onClose={() => setShowWx(false)} onDone={() => nav('/')} />}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} onDone={() => nav('/')} />}
     </header>
   )
 }

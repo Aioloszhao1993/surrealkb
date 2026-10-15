@@ -65,6 +65,14 @@
   animation: modpop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 @keyframes modpop { from { opacity: 0; transform: scale(0.94) translateY(8px); } to { opacity: 1; transform: none; } }
+/* 统一认证弹窗：字段比微信弹窗多（注册态还带头像选择），所以限高并可内部滚动 */
+.auth-modal {
+  position: relative; width: 100%; max-width: 400px; padding: 26px 24px;
+  border-radius: 22px; background: linear-gradient(180deg, rgba(24, 16, 48, 0.98), rgba(12, 8, 28, 0.98));
+  border: 1px solid rgba(155, 89, 255, 0.42); box-shadow: 0 30px 80px -14px rgba(0, 0, 0, 0.8), 0 0 60px -18px rgba(155, 89, 255, 0.55);
+  animation: modpop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  max-height: min(86vh, 720px); overflow-y: auto;
+}
 .modal-x {
   position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%;
   border: 1px solid var(--panel-brd); background: rgba(255, 255, 255, 0.05); color: var(--txt-dim);
