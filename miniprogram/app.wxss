@@ -1,0 +1,51 @@
+/* 全局样式：与主站一致的深色霓虹风格 */
+page {
+  background: radial-gradient(circle at 20% 15%, #2a1055, #0a0618 60%, #05030d);
+  min-height: 100vh;
+}
+
+/* 长文页（隐私保护指引 / 用户服务协议）通用版式 */
+.doc {
+  padding: 48rpx 44rpx 80rpx;
+  box-sizing: border-box;
+}
+
+.doc-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #f0ecff;
+  margin-bottom: 12rpx;
+}
+
+.doc-meta {
+  font-size: 23rpx;
+  color: #7f76a8;
+  margin-bottom: 36rpx;
+}
+
+.doc-h {
+  font-size: 29rpx;
+  font-weight: 700;
+  color: #d9cfff;
+  margin: 40rpx 0 14rpx;
+}
+
+.doc-p {
+  font-size: 26rpx;
+  line-height: 1.85;
+  color: #a99fd0;
+  margin-bottom: 8rpx;
+}
+
+.doc-li {
+  font-size: 26rpx;
+  line-height: 1.85;
+  color: #a99fd0;
+  padding-left: 24rpx;
+  margin-bottom: 6rpx;
+}
+
+.em {
+  color: #34ffab;
+  font-weight: 700;
+}

@@ -1,15 +1,19 @@
 {
   "pages": [
-    "pages/login/index"
+    "pages/home/index",
+    "pages/login/index",
+    "pages/privacy/index",
+    "pages/agreement/index"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#0a0618",
-    "navigationBarTitleText": "SurrealKB 登录",
+    "navigationBarTitleText": "SurrealKB",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#05030d"
   },
   "lazyCodeLoading": "requiredComponents",
+  "__usePrivacyCheck__": true,
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }

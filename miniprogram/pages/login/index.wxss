@@ -97,3 +97,10 @@ page {
   color: #c9bfff;
   border: 1rpx solid rgba(155, 89, 255, 0.4);
 }
+
+.help {
+  margin-top: 32rpx;
+  font-size: 25rpx;
+  color: #9b86e0;
+  text-decoration: underline;
+}

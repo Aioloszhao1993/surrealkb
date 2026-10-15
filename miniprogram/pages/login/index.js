@@ -5,7 +5,7 @@ const { API_BASE, TIMEOUT } = require('../../config.js')
 
 Page({
   data: {
-    status: 'loading', // loading | success | error | noscan
+    status: 'loading', // loading | success | error
     title: '正在登录…',
     desc: '正在验证你的身份，请稍候',
     detail: '',
@@ -16,12 +16,10 @@ Page({
     const scene = options && options.scene ? decodeURIComponent(options.scene) : ''
 
     if (!scene) {
-      // 用户是直接打开小程序（不是扫码进来的）——没有票据，没法登录
-      this.setData({
-        status: 'noscan',
-        title: '请从电脑网页扫码进入',
-        desc: '这个小程序只是登录跳板。请回到电脑上打开网站，点「微信登录」，再用微信扫那张二维码。',
-      })
+      // 直接打开小程序（不是扫码进来的）时没有登录票据，无法登录。
+      // 这里不再停在死胡同页面上，而是转到首页看完整说明，
+      // 保证任何入口打开都能看到可用内容。
+      wx.redirectTo({ url: '/pages/home/index' })
       return
     }
 
@@ -95,5 +93,10 @@ Page({
 
   close() {
     wx.exitMiniProgram && wx.exitMiniProgram()
+  },
+
+  // 登录失败时给一条退路：回首页看使用说明
+  goHome() {
+    wx.redirectTo({ url: '/pages/home/index' })
   },
 })

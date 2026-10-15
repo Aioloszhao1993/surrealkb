@@ -1,0 +1,67 @@
+<view class="doc">
+  <view class="doc-title">用户服务协议</view>
+  <view class="doc-meta">更新日期：2026 年 10 月 15 日　生效日期：2026 年 10 月 15 日</view>
+
+  <view class="doc-p">
+    欢迎使用 SurrealKB 登录辅助小程序（以下简称「本小程序」）。本协议是你与 SurrealKB 开发者（以下简称「我们」）之间就使用本小程序所订立的协议。请在使用前仔细阅读，你开始使用即表示你已阅读并同意本协议。
+  </view>
+
+  <view class="doc-h">一、服务内容</view>
+  <view class="doc-p">
+    本小程序是一项<text class="em">登录辅助工具</text>，仅用于帮助你在电脑端 SurrealKB 网站上完成微信扫码登录。具体流程为：
+  </view>
+  <view class="doc-li">1. 你在电脑端网站发起登录，网站展示一张带参二维码；</view>
+  <view class="doc-li">2. 你使用微信扫描该二维码进入本小程序；</view>
+  <view class="doc-li">3. 本小程序经你授权确认身份后，将确认结果回传至电脑端网页，完成本次登录。</view>
+  <view class="doc-p">
+    本小程序<text class="em">不提供</text>内容浏览、文档上传、问答交互、发帖评论、社交互动等信息发布类服务，也不提供任何交易或支付功能。知识库相关的全部功能均在电脑端网站提供。
+  </view>
+
+  <view class="doc-h">二、使用规范</view>
+  <view class="doc-p">你在使用本小程序时，应当遵守中华人民共和国法律法规及微信平台的相关规则，并同意：</view>
+  <view class="doc-li">· 不利用本小程序从事任何违法或违规活动；</view>
+  <view class="doc-li">· 不进行任何危害网络安全、干扰服务正常运行的行为，包括但不限于反向工程、恶意请求、批量注册等；</view>
+  <view class="doc-li">· 不冒用他人身份或未经授权使用他人账号；</view>
+  <view class="doc-li">· 不将本小程序用于任何超出登录辅助范围的用途。</view>
+  <view class="doc-p">
+    若你违反上述规范，我们有权暂停或终止向你提供服务，并保留追究相应责任的权利。
+  </view>
+
+  <view class="doc-h">三、你的账号与信息安全</view>
+  <view class="doc-p">
+    你应妥善保管你的账号信息。因你自身原因导致账号信息泄露而产生的后果，由你自行承担。我们对你个人信息的处理方式，详见《用户隐私保护指引》。
+  </view>
+
+  <view class="doc-h">四、服务的变更、中断与终止</view>
+  <view class="doc-li">· 我们可能因业务调整、技术升级或法律法规要求，变更、暂停或终止本小程序的部分或全部服务；</view>
+  <view class="doc-li">· 因不可抗力、网络故障、微信平台政策调整等我们无法控制的原因导致服务中断或数据丢失的，我们不承担责任，但会尽力恢复；</view>
+  <view class="doc-li">· 你可以随时停止使用本小程序。</view>
+
+  <view class="doc-h">五、免责声明</view>
+  <view class="doc-p">
+    本小程序按「现状」提供。在法律允许的最大范围内，我们不对服务的绝对无中断、无错误作出保证。本小程序仅提供登录辅助，你在电脑端网站上对知识库内容所做的操作及其后果，由你自行负责。
+  </view>
+
+  <view class="doc-h">六、知识产权</view>
+  <view class="doc-p">
+    本小程序相关的软件、界面设计、图标、文字等内容的知识产权归我们或相应权利人所有。未经授权，你不得复制、修改、传播或用于任何商业用途。
+  </view>
+
+  <view class="doc-h">七、协议的更新</view>
+  <view class="doc-p">
+    我们可能根据业务需要或法律法规变化修订本协议，修订后会在本页面发布最新版本并标注更新日期。若你在协议更新后继续使用本小程序，即视为你接受修订后的协议。
+  </view>
+
+  <view class="doc-h">八、法律适用与争议解决</view>
+  <view class="doc-p">
+    本协议的订立、效力、解释及争议解决均适用中华人民共和国法律。若双方就本协议产生争议，应友好协商解决；协商不成的，可向有管辖权的人民法院提起诉讼。
+  </view>
+
+  <view class="doc-h">九、如何联系我们</view>
+  <view class="doc-p" wx:if="{{email}}">
+    如你对本协议有任何疑问，可通过邮箱 {{email}} 与我们联系。
+  </view>
+  <view class="doc-p" wx:else>
+    如你对本协议有任何疑问，可通过本小程序或 SurrealKB 网站公布的联系方式与我们联系。
+  </view>
+</view>

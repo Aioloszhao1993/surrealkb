@@ -20,10 +20,12 @@
     >重试</button>
 
     <button
-      wx:if="{{status === 'success' || status === 'noscan'}}"
+      wx:if="{{status === 'success'}}"
       class="btn ghost"
       hover-class="btn-hover"
       bindtap="close"
     >关闭</button>
+
+    <view class="help" wx:if="{{status === 'error'}}" bindtap="goHome">查看使用说明</view>
   </view>
 </view>

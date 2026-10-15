@@ -1,0 +1,68 @@
+<view class="doc">
+  <view class="doc-title">用户隐私保护指引</view>
+  <view class="doc-meta">更新日期：2026 年 10 月 15 日　生效日期：2026 年 10 月 15 日</view>
+
+  <view class="doc-p">
+    SurrealKB 登录辅助小程序（以下简称「本小程序」）由 SurrealKB 开发者（以下简称「我们」）运营。我们非常重视你的个人信息保护。本指引说明我们如何收集、使用、存储和保护你的信息，以及你享有的权利。请在使用本小程序前仔细阅读。
+  </view>
+
+  <view class="doc-h">一、我们收集哪些信息</view>
+  <view class="doc-p">
+    本小程序仅在为你提供登录辅助服务所必需的范围内收集信息：
+  </view>
+  <view class="doc-li">· 微信登录标识（openid）：当你使用微信扫码登录时，微信会提供一个用于区分账号的标识。我们使用它把你的微信身份与你在电脑端发起的登录请求进行关联，以完成本次登录。</view>
+
+  <view class="doc-p">我们不会收集以下信息：</view>
+  <view class="doc-li">· 微信昵称、头像、手机号；</view>
+  <view class="doc-li">· 地理位置、通讯录、通话记录；</view>
+  <view class="doc-li">· 相册、摄像头、麦克风；</view>
+  <view class="doc-li">· 你在其他应用中的使用记录。</view>
+  <view class="doc-p">
+    本小程序不提供内容浏览、发帖评论、社交互动等信息发布功能，也不会采集与登录无关的任何个人信息。
+  </view>
+
+  <view class="doc-h">二、我们如何使用这些信息</view>
+  <view class="doc-li">· 完成身份确认，使你在电脑端网页上完成登录；</view>
+  <view class="doc-li">· 在你已登录的账号下展示你的知识库内容（该功能在电脑端网站提供，本小程序不承载内容）。</view>
+  <view class="doc-p">
+    我们不会将上述信息用于广告推送、用户画像、定向营销或其他与登录服务无关的目的。
+  </view>
+
+  <view class="doc-h">三、信息的存储与保护</view>
+  <view class="doc-li">· 存储地点：存储于位于中华人民共和国境内的服务器。</view>
+  <view class="doc-li">· 存储期限：在你使用本服务期间持续保存；你注销账号或要求删除后，我们将在合理期限内删除或匿名化处理。</view>
+  <view class="doc-li">· 保护措施：我们采用访问权限控制、传输加密等合理的技术与管理措施保护你的信息安全。</view>
+
+  <view class="doc-h">四、我们如何对外提供信息</view>
+  <view class="doc-p">
+    我们不会向任何第三方出售、出租或以其他方式提供你的个人信息。仅在下列情形下可能对外披露：
+  </view>
+  <view class="doc-li">· 事先获得你的明确同意；</view>
+  <view class="doc-li">· 根据法律法规的强制性要求，或应有权机关依法提出的要求。</view>
+
+  <view class="doc-h">五、你的权利</view>
+  <view class="doc-li">· 查询与更正：你可以要求查询、更正你的相关信息；</view>
+  <view class="doc-li">· 删除：你可以要求删除你的相关信息或注销账号；</view>
+  <view class="doc-li">· 撤回同意：你可以停止使用本小程序，我们将不再继续收集。</view>
+  <view class="doc-p">
+    行使上述权利，请通过下方联系方式与我们联系。
+  </view>
+
+  <view class="doc-h">六、未成年人保护</view>
+  <view class="doc-p">
+    本小程序不面向不满十四周岁的儿童。若你是未成年人，请在监护人同意并陪同下使用。若我们发现在未事先获得监护人同意的情况下收集了儿童个人信息，会设法尽快删除。
+  </view>
+
+  <view class="doc-h">七、本指引的更新</view>
+  <view class="doc-p">
+    本指引可能因法律法规变化或服务调整而更新。更新后我们会在本页面发布最新版本并标注更新日期。若变更会实质影响你的权益，我们会以显著方式提示。
+  </view>
+
+  <view class="doc-h">八、如何联系我们</view>
+  <view class="doc-p" wx:if="{{email}}">
+    如你对本指引有任何疑问、意见或投诉，可通过邮箱 {{email}} 与我们联系，我们将在收到后尽快处理。
+  </view>
+  <view class="doc-p" wx:else>
+    如你对本指引有任何疑问、意见或投诉，可通过本小程序或 SurrealKB 网站公布的联系方式与我们联系，我们将在收到后尽快处理。
+  </view>
+</view>
