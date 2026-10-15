@@ -11,12 +11,15 @@ const STATUS_TABS = [
   { key: 'failed', label: '失败' },
 ]
 
+// hero 下方展示的支持格式（格式清单只在这里出现一处，避免和能力卡片重复）
+const FORMATS = ['PDF', 'Word (.docx)', 'TXT', 'Markdown']
+
 // 未登录时的能力介绍（首页留白填充，同时替代营销文案）
 const FEATURES = [
   {
     icon: '⇪',
     title: '上传即用',
-    desc: 'PDF / Word / TXT / Markdown 都能直接拖进来，不用先整理格式。',
+    desc: '拖进来就行，自动识别标题与正文结构，不用先手工整理。',
   },
   {
     icon: '◈',
@@ -92,10 +95,16 @@ export default function Home() {
   return (
     <div className="home">
       <section className="hero">
+        <span className="hero-badge">个人知识库 · 上传即用 · 无需配置</span>
         <h1>
           把你的文档，变成<span className="accent">会答话</span>的知识库
         </h1>
-        <p>上传 PDF / Word / TXT / Markdown，向 AI 提问，答案带原文出处。</p>
+        <p>上传你的文档，向它提问 —— 每个答案都标注原文出处。</p>
+        <ul className="hero-formats">
+          {FORMATS.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
       </section>
 
       {!user ? (
