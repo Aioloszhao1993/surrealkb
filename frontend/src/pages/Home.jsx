@@ -11,6 +11,31 @@ const STATUS_TABS = [
   { key: 'failed', label: '失败' },
 ]
 
+// 未登录时的能力介绍（首页留白填充，同时替代营销文案）
+const FEATURES = [
+  {
+    icon: '⇪',
+    title: '上传即用',
+    desc: 'PDF / Word / TXT / Markdown 都能直接拖进来，不用先整理格式。',
+  },
+  {
+    icon: '◈',
+    title: '自动建索引',
+    desc: '系统自动解析正文、切分片段并建立向量索引，几秒后就能检索。',
+  },
+  {
+    icon: '✦',
+    title: '问答带出处',
+    desc: '向 AI 提问，答案附带原文出处，点一下即可跳回原文对应位置。',
+  },
+]
+
+const STEPS = [
+  { title: '上传文档', desc: '拖拽或点选，单份不超过 50MB' },
+  { title: '自动处理', desc: '解析正文 → 切分片段 → 建立索引' },
+  { title: '提问取答案', desc: '点右下角 ✦ 提问，答案带回原文出处' },
+]
+
 export default function Home() {
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
@@ -74,7 +99,36 @@ export default function Home() {
       </section>
 
       {!user ? (
-        <div className="empty">登录后即可查看和管理你知识库中的文档。</div>
+        <>
+          <section className="features">
+            {FEATURES.map((f) => (
+              <article className="feature-card" key={f.title}>
+                <div className="feature-icon" aria-hidden="true">
+                  {f.icon}
+                </div>
+                <h3 className="feature-title">{f.title}</h3>
+                <p className="feature-desc">{f.desc}</p>
+              </article>
+            ))}
+          </section>
+
+          <section className="howto">
+            <h2 className="howto-title">三步用起来</h2>
+            <ol className="howto-list">
+              {STEPS.map((s, i) => (
+                <li className="howto-item" key={s.title}>
+                  <span className="howto-num" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                  <span className="howto-text">
+                    <strong>{s.title}</strong>
+                    <em>{s.desc}</em>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </>
       ) : (
         <>
           <div className="toolbar">
@@ -143,16 +197,20 @@ export default function Home() {
                   </button>
                 </>
               ) : (
-                <div className="onboard">
+                <div className="onboard-card">
+                  <div className="onboard-icon" aria-hidden="true">
+                    ⇪
+                  </div>
                   <div className="onboard-title">知识库还是空的</div>
-                  <ol className="onboard-steps">
-                    <li>
-                      点右上角 <Link to="/upload" className="link">上传文档 ↗</Link>
-                      ，支持 PDF / Word / TXT / Markdown（≤50MB）
-                    </li>
-                    <li>系统自动解析正文、分块并建立向量索引</li>
-                    <li>点右下角 ✦ 向 AI 提问，答案带原文出处</li>
-                  </ol>
+                  <p className="onboard-desc">
+                    上传第一份文档，系统会自动解析正文、切分片段并建立索引，随后你就能向它提问了。
+                  </p>
+                  <Link to="/upload" className="btn primary">
+                    上传第一份文档
+                  </Link>
+                  <p className="onboard-hint">
+                    支持 PDF / Word(.docx) / TXT / Markdown，单份不超过 50MB
+                  </p>
                 </div>
               )}
             </div>
