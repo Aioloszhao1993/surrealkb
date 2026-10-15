@@ -516,7 +516,9 @@ export default function AiChat() {
                 {user?.ai_name ? '给我改个名字' : '先给我起个名字吧'}
               </div>
               <p className="ai-setup-p">
-                我的名字由你定，默认叫 {DEFAULT_AI_NAME}，之后随时能改。
+                {user?.ai_name
+                  ? '改完立刻生效，面板上的称呼会一起换掉。'
+                  : `我的名字由你定，默认叫 ${DEFAULT_AI_NAME}，之后随时能改。`}
               </p>
               <input
                 className="ai-setup-input"
