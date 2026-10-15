@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api, { errMsg } from '../api'
 import { num, timeAgo } from '../components/format'
@@ -6,6 +6,7 @@ import Avatar from '../components/Avatar'
 import HoverUser from '../components/UserHoverCard'
 import RichPreview from '../components/RichPreview'
 import RichTextEditor from '../components/RichTextEditor'
+import useClickOutside from '../useClickOutside'
 import { useAuth } from '../store'
 
 const STATUS_LABEL = { ready: '已就绪', pending: '处理中', failed: '处理失败' }
@@ -77,6 +78,10 @@ export default function DocDetail() {
   const [revisions, setRevisions] = useState(null)
   const [viewRev, setViewRev] = useState(null) // { revision, title, content }
   const [showDl, setShowDl] = useState(false) // 「下载当前版本」格式菜单
+  const dlWrapRef = useRef(null)
+
+  // 下载格式菜单：点击空白处关闭
+  useClickOutside(dlWrapRef, () => setShowDl(false), showDl)
 
   const flash = (m) => {
     setToast(m)
@@ -458,12 +463,12 @@ export default function DocDetail() {
               <button className="btn ghost" onClick={reindex} disabled={busy}>
                 {busy ? '重建中…' : '重建索引'}
               </button>
-              <div className="dl-wrap">
+              <div className="dl-wrap" ref={dlWrapRef} onMouseLeave={() => setShowDl(false)}>
                 <button className="btn ghost" onClick={() => setShowDl((v) => !v)}>
                   下载当前版本 ▾
                 </button>
                 {showDl && (
-                  <div className="dl-menu" onMouseLeave={() => setShowDl(false)}>
+                  <div className="dl-menu">
                     <button onClick={() => { setShowDl(false); downloadVersion('docx') }}>Word 文档 (.docx)</button>
                     <button onClick={() => { setShowDl(false); downloadVersion('pdf') }}>PDF 文档 (.pdf)</button>
                     <button onClick={() => { setShowDl(false); downloadVersion('md') }}>Markdown (.md)</button>

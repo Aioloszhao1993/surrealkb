@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errMsg } from '../api'
+import useClickOutside from '../useClickOutside'
 import { useAuth } from '../store'
 
 const SESSION_KEY = 'ai_session_key'
@@ -82,8 +83,14 @@ export default function AiChat() {
   const [busy, setBusy] = useState(false)
   const [msgs, setMsgs] = useState([WELCOME])
   const boxRef = useRef(null)
+  const fabRef = useRef(null)
+  const panelRef = useRef(null)
   const sessionKey = useRef(getSessionKey())
   const abortRef = useRef(null)
+
+  // 面板保持常驻悬浮形态（不遮挡页面），但点页面其他地方的空白处即收起。
+  // 悬浮按钮本身要排除在「外部」之外，否则会和它自己的 toggle 打架。
+  useClickOutside([fabRef, panelRef], () => setOpen(false), open)
 
   const skHeaders = () => ({ headers: { 'X-Session-Key': sessionKey.current } })
 
@@ -203,6 +210,7 @@ export default function AiChat() {
     <>
       <button
         className={'ai-fab' + (open ? ' active' : '')}
+        ref={fabRef}
         onClick={() => setOpen((v) => !v)}
         title="AI 助手"
         aria-label="AI 助手"
@@ -211,7 +219,7 @@ export default function AiChat() {
       </button>
 
       {open && (
-        <div className="ai-panel">
+        <div className="ai-panel" ref={panelRef}>
           <div className="ai-head">
             <div className="ai-title">
               <span className="ai-dot" />

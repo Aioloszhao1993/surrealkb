@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import useClickOutside from '../useClickOutside'
 import { useAuth } from '../store'
 import { num } from './format'
 import Avatar from './Avatar'
@@ -22,6 +23,7 @@ export default function HoverUser({ user, children, place = 'right' }) {
   const openTimer = useRef(null)
   const closeTimer = useRef(null)
   const cardRef = useRef(null)
+  const wrapRef = useRef(null)
 
   const clearTimers = () => {
     clearTimeout(openTimer.current)
@@ -67,6 +69,9 @@ export default function HoverUser({ user, children, place = 'right' }) {
 
   useEffect(() => () => clearTimers(), [])
 
+  // 点击空白处也关掉资料卡（悬停移出本来就会关，这里补上「点空白」这条路径）
+  useClickOutside(wrapRef, () => setOpen(false), open)
+
   const toggleFollow = async () => {
     if (!me) return
     setFollowBusy(true)
@@ -85,7 +90,7 @@ export default function HoverUser({ user, children, place = 'right' }) {
   const isSelf = me && me.id === user.id
 
   return (
-    <span className="hover-user" onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
+    <span className="hover-user" ref={wrapRef} onMouseEnter={scheduleOpen} onMouseLeave={scheduleClose}>
       {children}
       {open && (
         <div
