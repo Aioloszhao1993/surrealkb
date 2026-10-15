@@ -1,5 +1,5 @@
 /* ---------- 背景层 ---------- */
-.bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background:
+.bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background:
   radial-gradient(1200px 700px at 15% 0%, #1a0f47 0%, transparent 60%),
   radial-gradient(1000px 700px at 90% 10%, #0a2b3d 0%, transparent 55%),
   radial-gradient(900px 600px at 50% 110%, #2a0b3a 0%, transparent 60%),
@@ -26,6 +26,158 @@
   position: absolute; inset: 0; opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+
+/* ============================================================
+   超梦（Braindance）叠层
+   《赛博朋克 2077》里回放他人感官记录时的观感：CRT 扫描线、
+   自上而下的扫描光带、偶发的信号故障、暗角聚焦，外加一圈 HUD。
+   全部挂在 .bg（fixed / z-index:-1）内，只做氛围，不承接任何交互。
+   ============================================================ */
+
+/* 扫描线：细密栅格缓慢爬行，模仿 BD 回放的显像管质地 */
+.bd-scanlines {
+  position: absolute; inset: -4px 0 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(3, 1, 10, 0) 0 2px,
+    rgba(3, 1, 10, 0.22) 2px 3px
+  );
+  opacity: 0.36;
+  animation: bdScroll 9s linear infinite;
+}
+@keyframes bdScroll { to { transform: translateY(3px); } }
+
+/* 扫描光带：BD 最具辨识度的一笔——一条青光自上而下扫过整个画面 */
+.bd-sweep {
+  position: absolute; left: 0; right: 0; top: 0; height: 220px;
+  background: linear-gradient(
+    to bottom,
+    rgba(34, 211, 238, 0) 0%,
+    rgba(34, 211, 238, 0.05) 42%,
+    rgba(34, 211, 238, 0.13) 78%,
+    rgba(94, 234, 255, 0.28) 97%,
+    rgba(34, 211, 238, 0) 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: bdSweep 11s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+/* 光带前沿的一道细亮线——BD 扫描头扫过时的那笔高光 */
+.bd-sweep::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 4px; height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(148, 240, 255, 0.55) 18%,
+    rgba(210, 250, 255, 0.85) 50%,
+    rgba(148, 240, 255, 0.55) 82%, transparent 100%);
+  box-shadow: 0 0 12px rgba(94, 234, 255, 0.55);
+}
+@keyframes bdSweep {
+  0%   { transform: translateY(-240px); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* 故障闪带：每轮偶尔抽一下的 RGB 撕裂 */
+.bd-glitch {
+  position: absolute; left: 0; right: 0; top: 34%; height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 92, 200, 0.5) 22%,
+    rgba(34, 211, 238, 0.55) 52%,
+    rgba(255, 209, 102, 0.4) 78%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: bdGlitch 13s ease-in-out infinite;
+}
+@keyframes bdGlitch {
+  0%, 86%  { opacity: 0; transform: none; }
+  87%      { opacity: 0.85; transform: translateY(0) scaleY(1); }
+  88%      { opacity: 0.12; transform: translateY(-7px) scaleY(2.6); }
+  89%      { opacity: 0.7; transform: translateY(9px) scaleY(1.3); }
+  90%, 100% { opacity: 0; transform: none; }
+}
+
+/* 暗角：把注意力收回画面中部，BD 回放特有的"聚焦感" */
+.bd-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(
+    ellipse 80% 70% at 50% 42%,
+    transparent 46%,
+    rgba(2, 1, 8, 0.4) 100%
+  );
+}
+
+/* ---------- BD HUD ---------- */
+.bd-hud {
+  position: absolute; inset: 0;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
+  user-select: none;
+  pointer-events: none;
+}
+
+.bd-corner {
+  position: absolute; width: 22px; height: 22px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.22);
+}
+.bd-corner.tl { top: 16px; left: 16px; border-right: 0; border-bottom: 0; }
+.bd-corner.tr { top: 16px; right: 16px; border-left: 0; border-bottom: 0; }
+.bd-corner.bl { bottom: 16px; left: 16px; border-right: 0; border-top: 0; }
+.bd-corner.br { bottom: 16px; right: 16px; border-left: 0; border-top: 0; }
+
+.bd-meta {
+  position: absolute; top: 86px; right: 32px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(34, 211, 238, 0.5);
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
+}
+.bd-meta-row { display: inline-flex; align-items: center; gap: 7px; }
+.bd-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--neon-3); box-shadow: 0 0 8px var(--neon-3);
+  animation: bdBlink 1.6s steps(1, end) infinite;
+}
+@keyframes bdBlink { 0%, 52% { opacity: 1; } 53%, 100% { opacity: 0.2; } }
+
+.bd-timecode {
+  color: rgba(94, 234, 255, 0.62);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+.bd-track {
+  position: relative; display: block; width: 132px; height: 3px; border-radius: 2px;
+  background: rgba(34, 211, 238, 0.15);
+}
+.bd-track i {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.3), rgba(94, 234, 255, 0.8));
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.65);
+}
+.bd-track i::after {
+  content: ''; position: absolute; right: 0; top: -2px; width: 2px; height: 7px;
+  background: #cbf6ff; box-shadow: 0 0 8px rgba(94, 234, 255, 0.9);
+}
+
+/* 左上角的 BD 层级列表（视觉 / 音频 / 热成像），与右侧时间码对称 */
+.bd-layers {
+  position: absolute; left: 32px; top: 86px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(169, 159, 208, 0.34);
+}
+.bd-layer { display: inline-flex; align-items: center; gap: 7px; }
+.bd-layer i {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: currentColor;
+}
+.bd-layer.on { color: rgba(94, 234, 255, 0.6); text-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
+.bd-layer.on i { box-shadow: 0 0 8px rgba(94, 234, 255, 0.8); }
 
 /* ---------- 布局 ---------- */
 .app-shell { display: flex; flex-direction: column; min-height: 100vh; }

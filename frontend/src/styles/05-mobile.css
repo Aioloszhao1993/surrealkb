@@ -268,3 +268,46 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .ai-source:hover { transform: none; }
   .feature-card:hover { transform: none; box-shadow: none; }
 }
+
+/* ============================================================
+   超梦（Braindance）叠层的降级
+   ============================================================ */
+
+/* 尊重「减弱动态效果」：停掉所有氛围动画，闪带直接隐藏 */
+@media (prefers-reduced-motion: reduce) {
+  .bd-scanlines,
+  .bd-sweep,
+  .bd-glitch,
+  .bd-dot,
+  .orb,
+  .grid-overlay { animation: none; }
+  .bd-sweep,
+  .bd-glitch { opacity: 0; }
+}
+
+/* 窄屏：HUD 缩小内缩，扫描线与噪点降强度，避免糊住正文 */
+@media (max-width: 820px) {
+  .bd-corner { width: 15px; height: 15px; }
+  .bd-corner.tl, .bd-corner.tr { top: 12px; }
+  .bd-corner.bl, .bd-corner.br { bottom: 12px; }
+  .bd-corner.tl, .bd-corner.bl { left: 12px; }
+  .bd-corner.tr, .bd-corner.br { right: 12px; }
+
+  .bd-meta { top: 76px; right: 16px; font-size: 9.5px; gap: 4px; }
+  .bd-track { width: 104px; }
+  .bd-layers { left: 16px; top: 76px; font-size: 9px; gap: 5px; }
+
+  .bd-scanlines { opacity: 0.26; }
+  .bd-vignette {
+    background: radial-gradient(
+      ellipse 92% 78% at 50% 40%,
+      transparent 48%,
+      rgba(2, 1, 8, 0.36) 100%
+    );
+  }
+}
+
+/* 极窄屏：层级列表会挤到标题，直接隐去 */
+@media (max-width: 560px) {
+  .bd-layers { display: none; }
+}
