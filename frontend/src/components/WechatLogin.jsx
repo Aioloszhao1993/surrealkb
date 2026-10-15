@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../api'
+import portal from './Portal'
 import { useAuth } from '../store'
 
 const POLL_MS = 1800
@@ -75,7 +76,7 @@ export default function WechatLogin({ onClose, onDone }) {
 
   const scanUrl = mode === 'mock' && state ? `/api/auth/wx/mock?state=${state}` : ''
 
-  return (
+  return portal(
     <div className="modal-back" onClick={onClose}>
       <div className="wx-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-x" onClick={onClose} aria-label="关闭">

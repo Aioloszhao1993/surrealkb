@@ -3,6 +3,7 @@ import api, { errMsg } from '../api'
 import { useAuth } from '../store'
 import { PRESET_AVATARS } from '../presets'
 import Avatar from './Avatar'
+import portal from './Portal'
 
 export default function AvatarPicker({ onClose }) {
   const { user, updateUser } = useAuth()
@@ -53,7 +54,7 @@ export default function AvatarPicker({ onClose }) {
     }
   }
 
-  return (
+  return portal(
     <div className="modal-back" onClick={onClose}>
       <div className="avatar-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-x" onClick={onClose} aria-label="关闭">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api, { errMsg } from '../api'
 import { useAuth } from '../store'
 import Avatar from './Avatar'
+import portal from './Portal'
 
 export default function EditProfile({ onClose }) {
   const { user, updateUser } = useAuth()
@@ -28,7 +29,7 @@ export default function EditProfile({ onClose }) {
     }
   }
 
-  return (
+  return portal(
     <div className="modal-back" onClick={onClose}>
       <div className="avatar-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-x" onClick={onClose} aria-label="关闭">

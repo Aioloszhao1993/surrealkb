@@ -6,6 +6,7 @@ import Avatar from '../components/Avatar'
 import HoverUser from '../components/UserHoverCard'
 import RichPreview from '../components/RichPreview'
 import RichTextEditor from '../components/RichTextEditor'
+import portal from '../components/Portal'
 import useClickOutside from '../useClickOutside'
 import { useAuth } from '../store'
 
@@ -589,7 +590,7 @@ export default function DocDetail() {
         </>
       )}
 
-      {revisions !== null && (
+      {revisions !== null && portal(
         <div className="modal-mask" onClick={() => setRevisions(null)}>
           <div className="modal-card wide" onClick={(e) => e.stopPropagation()}>
             <h3>版本历史</h3>
@@ -629,7 +630,7 @@ export default function DocDetail() {
         </div>
       )}
 
-      {viewRev && (
+      {viewRev && portal(
         <div className="modal-mask" onClick={() => setViewRev(null)}>
           <div className="modal-card wide" onClick={(e) => e.stopPropagation()}>
             <h3>v{viewRev.revision} · {viewRev.title}</h3>

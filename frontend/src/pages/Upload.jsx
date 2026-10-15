@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api, { errMsg } from '../api'
 import { sizeFmt } from '../components/format'
+import portal from '../components/Portal'
 
 const ACCEPT = '.pdf,.docx,.txt,.md,.markdown'
 const HINT = '支持 PDF / Word(.docx) / TXT / Markdown，单个不超过 50MB'
@@ -192,7 +193,7 @@ export default function Upload() {
         </button>
       </form>
 
-      {conflict && (
+      {conflict && portal(
         <div className="modal-mask" onClick={() => setConflict(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>发现同名文档</h3>
