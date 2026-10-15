@@ -10,6 +10,10 @@ function buildStamp() {
 }
 
 // 开发时代理后端，避免跨域；生产可用 Nginx 反代
+// 目标可用 VITE_API_TARGET 覆盖（默认 127.0.0.1:8000）——
+// 便于在另一个端口跑一份后端实例做联调，而不影响本机常驻的那个。
+const API_TARGET = process.env.VITE_API_TARGET || 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -18,8 +22,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-      '/media': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/api': { target: API_TARGET, changeOrigin: true },
+      '/media': { target: API_TARGET, changeOrigin: true },
     },
   },
 })

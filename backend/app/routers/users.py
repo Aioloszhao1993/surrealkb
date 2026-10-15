@@ -38,6 +38,13 @@ def update_me(
         user.username = payload.username
     if payload.bio is not None:
         user.bio = payload.bio
+    if payload.ai_name is not None:
+        # 前后空白去掉；纯空白 / 空串视为非法（用空串"清空名字"没有意义，
+        # 前端靠 ai_name is None 判断是否需要引导起名）
+        ai_name = payload.ai_name.strip()
+        if not ai_name:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "AI 名字不能为空")
+        user.ai_name = ai_name
     db.commit()
     db.refresh(user)
     return UserOut.model_validate(user)

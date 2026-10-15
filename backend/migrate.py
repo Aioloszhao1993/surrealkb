@@ -13,6 +13,7 @@ from app.database import Base, engine
 ADD_COLUMNS = {
     "users": [
         ("bio", "VARCHAR(200) NULL"),
+        ("ai_name", "VARCHAR(24) NULL"),
         ("wechat_openid", "VARCHAR(64) NULL"),
         ("tenant_id", "INT NULL"),
         ("role", "VARCHAR(16) NOT NULL DEFAULT 'member'"),

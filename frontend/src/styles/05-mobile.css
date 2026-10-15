@@ -37,7 +37,7 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
         高于裸 input 的 (0,0,1)，必须显式重新声明，否则盖不住。
         （.upload-zone input[type='file'] 是隐藏的文件框，不触发缩放，不用管。） */
   input, textarea, select,
-  .field input, .field textarea, .ai-input input, .tag-edit input { font-size: 16px; }
+  .field input, .field textarea, .ai-input input, .ai-setup-input, .tag-edit input { font-size: 16px; }
   /* 但别把按钮型 input 也放大 */
   input[type='button'], input[type='submit'], input[type='reset'], input[type='checkbox'], input[type='radio'] { font-size: inherit; }
 
@@ -289,9 +289,13 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .modal-x::after {
     content: ''; position: absolute; inset: -7px; border-radius: inherit;
   }
-  /* AI 面板头部两个按钮离得近（gap 4px），撑伪元素会互相压，改成加内边距 */
+  /* AI 面板头部三个按钮离得近（gap 4px），撑伪元素会互相压，改成加内边距 */
   .ai-head-actions { gap: 2px; }
   .ai-head-actions button { padding: 12px 14px; }
+  /* 起名步骤里的胶囊和两个按钮也偏小（胶囊原本只有 26px 高） */
+  .ai-setup-chips button { padding: 9px 14px; }
+  .ai-setup-go { padding: 13px; }
+  .ai-setup-skip { padding: 10px 12px; }
 }
 
 /* ============================================================

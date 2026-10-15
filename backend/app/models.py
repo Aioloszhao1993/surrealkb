@@ -62,6 +62,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     bio: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # AI 助手的自定义名字：None = 用户还没起过名（前端据此在首次打开 AI 面板时引导起名）
+    ai_name: Mapped[str | None] = mapped_column(String(24), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     # 所属知识库 + 角色（owner 建库者 / admin 管理员 / member 普通成员）
     tenant_id: Mapped[int | None] = mapped_column(

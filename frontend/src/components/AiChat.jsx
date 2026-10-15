@@ -12,6 +12,21 @@ const EDGE = 12
 /** 悬浮球与面板之间的间隙 */
 const GAP = 12
 
+/** 还没起名时的默认名（也是「跳过」时会保存的值） */
+const DEFAULT_AI_NAME = 'Friday'
+/** 名字最长几个字符（后端 UserUpdate.ai_name 同样是 12，两边要一致） */
+const MAX_AI_NAME = 12
+/** 起名步骤里的快速选择 */
+const NAME_SUGGESTIONS = ['Friday', '小知', 'Nova']
+/**
+ * 触摸设备上不给输入框自动聚焦：唤起软键盘会把面板顶得看不见输入框，
+ * 而手机端面板是贴底通栏的。
+ */
+const CAN_HOVER =
+  typeof window !== 'undefined' &&
+  !!window.matchMedia &&
+  window.matchMedia('(hover: hover)').matches
+
 function getSessionKey() {
   let k = localStorage.getItem(SESSION_KEY)
   if (!k) {
@@ -83,11 +98,15 @@ function alignX(fabRect, pw, vw) {
   return Math.round(Math.min(Math.max(x, EDGE), Math.max(EDGE, vw - pw - EDGE)))
 }
 
-const WELCOME = {
+/**
+ * 欢迎语。带 kind 标记，名字改了之后靠它把这条自我介绍一并换掉
+ * （已经聊过的内容不动）。
+ */
+const welcome = (name) => ({
   role: 'assistant',
-  content:
-    '你好，我是 Friday 🌙 你的知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。',
-}
+  kind: 'intro',
+  content: `你好，我是 ${name} 🌙 你的知识库 AI 助手。\n基于你上传的文档提问，我会给出带原文出处的回答。试试「报销标准是什么」之类的问题吧。`,
+})
 
 // 用 fetch + ReadableStream 解析后端 SSE（axios 不便做浏览器流式）
 async function streamChat({ question, sessionKey, onSources, onDelta, signal }) {
@@ -144,12 +163,19 @@ async function streamChat({ question, sessionKey, onSources, onDelta, signal }) 
 }
 
 export default function AiChat() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const [open, setOpen] = useState(false)
   const [enabled, setEnabled] = useState(true)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [msgs, setMsgs] = useState([WELCOME])
+  // AI 的名字：登录用户存在服务端（users.ai_name），没起过名时是 null
+  const aiName = user?.ai_name || DEFAULT_AI_NAME
+  const [msgs, setMsgs] = useState(() => [welcome(aiName)])
+  // 起名 / 改名步骤：首次打开面板时（登录且从没起过名）自动进入
+  const [naming, setNaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [nameErr, setNameErr] = useState('')
+  const [savingName, setSavingName] = useState(false)
   // 悬浮球位置：null = 用 CSS 默认的右下角（含手机的 safe-area 处理），
   // 拖动过之后才由 JS 接管
   const [pos, setPos] = useState(loadFabPos)
@@ -285,16 +311,70 @@ export default function AiChat() {
       .get('/ai/history', skHeaders())
       .then(({ data }) => {
         if (data.items?.length) {
-          setMsgs([WELCOME, ...data.items.map((m) => ({ role: m.role, content: m.content }))])
+          setMsgs([welcome(aiName), ...data.items.map((m) => ({ role: m.role, content: m.content }))])
         }
       })
       .catch(() => {})
-  }, [open, user])
+    // 依赖写成 user?.id 而不是整个 user 对象：改名后 store 会换成一个新对象，
+    // 若因此重拉历史，会把正在生成的回答整段冲掉。
+    // 名字本身由下面那个 [aiName] 的 effect 负责更新欢迎语。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.id])
+
+  // 名字变了（首次起名 / 改名 / 换账号）→ 只换掉那条自我介绍，聊天记录不动
+  useEffect(() => {
+    setMsgs((m) => m.map((x) => (x.kind === 'intro' ? welcome(aiName) : x)))
+  }, [aiName])
+
+  // 首次使用引导：登录用户还没给 AI 起过名 → 打开面板就先请他起名。
+  // 没起名之前每次打开都会再问一次（也随时可以按 Esc 先跳过）。
+  useEffect(() => {
+    if (!open || !user || user.ai_name) return
+    setNaming(true)
+    setNameDraft('')
+    setNameErr('')
+  }, [open, user?.id, user?.ai_name])
+
+  // Esc 退出起名/改名步骤。挂在 window 上而不是输入框上：
+  // 用户点过「快速选择」胶囊之后焦点在按钮上，输入框的 onKeyDown 收不到按键。
+  useEffect(() => {
+    if (!naming) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setNaming(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [naming])
 
   useEffect(() => {
     const el = boxRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [msgs, busy, open])
+
+  /** 保存 AI 名字（首次起名与改名共用）。成功后就地把用户信息写回 store。 */
+  const saveAiName = async (raw) => {
+    const name = (raw || '').trim().replace(/\s+/g, ' ')
+    if (!name) {
+      setNameErr('名字不能是空的')
+      return
+    }
+    // 按码点数（emoji 算 1 个），与后端 len() 的口径一致
+    if ([...name].length > MAX_AI_NAME) {
+      setNameErr(`最多 ${MAX_AI_NAME} 个字`)
+      return
+    }
+    setSavingName(true)
+    setNameErr('')
+    try {
+      const { data } = await api.patch('/users/me', { ai_name: name })
+      updateUser(data)
+      setNaming(false)
+    } catch (e) {
+      setNameErr(errMsg(e))
+    } finally {
+      setSavingName(false)
+    }
+  }
 
   const ask = async (q) => {
     const text = (q || '').trim()
@@ -368,7 +448,7 @@ export default function AiChat() {
     } catch {
       /* ignore */
     }
-    setMsgs([WELCOME])
+    setMsgs([welcome(aiName)])
   }
 
   if (!enabled) return null
@@ -404,9 +484,22 @@ export default function AiChat() {
           <div className="ai-head">
             <div className="ai-title">
               <span className="ai-dot" />
-              Friday · AI 助手
+              <span className="ai-title-text">{aiName} · AI 助手</span>
             </div>
             <div className="ai-head-actions">
+              {user && (
+                <button
+                  onClick={() => {
+                    setNaming(true)
+                    setNameDraft(user.ai_name || '')
+                    setNameErr('')
+                  }}
+                  title="给 AI 改个名字"
+                  aria-label="给 AI 改个名字"
+                >
+                  ✎
+                </button>
+              )}
               <button onClick={clear} title="清空对话">
                 清空
               </button>
@@ -416,61 +509,122 @@ export default function AiChat() {
             </div>
           </div>
 
-          <div className="ai-body" ref={boxRef}>
-            {msgs.map((m, i) => (
-              <div key={i} className={'ai-msg ' + m.role + (m.error ? ' err' : '')}>
-                <div className="ai-bubble">
-                  {m.content}
-                  {m.streaming && <span className="ai-caret" />}
-                </div>
-                {m.sources?.length > 0 && (
-                  <div className="ai-sources">
-                    {m.sources.map((s, si) => (
-                      <Link
-                        key={si}
-                        to={`/doc/${s.document_id}?hl=${encodeURIComponent(
-                          s.anchor || s.snippet || ''
-                        )}&seq=${s.seq ?? ''}`}
-                        className="ai-source"
-                        onClick={() => setOpen(false)}
-                        title={s.snippet}
-                      >
-                        📄 {s.title}
-                        {s.seq != null && <span className="ai-seq">第{s.seq + 1}段</span>}
-                        <span className="ai-score">{(s.score * 100).toFixed(0)}%</span>
-                      </Link>
-                    ))}
+          {naming ? (
+            <div className="ai-setup">
+              <div className="ai-setup-mark">✦</div>
+              <div className="ai-setup-h">
+                {user?.ai_name ? '给我改个名字' : '先给我起个名字吧'}
+              </div>
+              <p className="ai-setup-p">
+                我的名字由你定，默认叫 {DEFAULT_AI_NAME}，之后随时能改。
+              </p>
+              <input
+                className="ai-setup-input"
+                value={nameDraft}
+                maxLength={MAX_AI_NAME}
+                autoFocus={CAN_HOVER}
+                placeholder={`例如 ${DEFAULT_AI_NAME}、小知…`}
+                aria-label="AI 助手名字"
+                onChange={(e) => {
+                  setNameDraft(e.target.value)
+                  setNameErr('')
+                }}
+                onKeyDown={(e) => {
+                  // Esc 由 window 上的监听统一处理，这里只管 Enter
+                  if (e.key === 'Enter') saveAiName(nameDraft)
+                }}
+              />
+              <div className="ai-setup-chips">
+                {NAME_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setNameDraft(s)
+                      setNameErr('')
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {nameErr && <div className="ai-setup-err">{nameErr}</div>}
+              <button
+                className="ai-setup-go"
+                onClick={() => saveAiName(nameDraft)}
+                disabled={savingName || !nameDraft.trim()}
+              >
+                {savingName ? '保存中…' : '就叫这个'}
+              </button>
+              {!user?.ai_name && (
+                <button
+                  className="ai-setup-skip"
+                  onClick={() => saveAiName(DEFAULT_AI_NAME)}
+                  disabled={savingName}
+                >
+                  先用默认名「{DEFAULT_AI_NAME}」
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="ai-body" ref={boxRef}>
+                {msgs.map((m, i) => (
+                  <div key={i} className={'ai-msg ' + m.role + (m.error ? ' err' : '')}>
+                    <div className="ai-bubble">
+                      {m.content}
+                      {m.streaming && <span className="ai-caret" />}
+                    </div>
+                    {m.sources?.length > 0 && (
+                      <div className="ai-sources">
+                        {m.sources.map((s, si) => (
+                          <Link
+                            key={si}
+                            to={`/doc/${s.document_id}?hl=${encodeURIComponent(
+                              s.anchor || s.snippet || ''
+                            )}&seq=${s.seq ?? ''}`}
+                            className="ai-source"
+                            onClick={() => setOpen(false)}
+                            title={s.snippet}
+                          >
+                            📄 {s.title}
+                            {s.seq != null && <span className="ai-seq">第{s.seq + 1}段</span>}
+                            <span className="ai-score">{(s.score * 100).toFixed(0)}%</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {busy && !msgs[msgs.length - 1]?.content && (
+                  <div className="ai-msg assistant">
+                    <div className="ai-bubble ai-typing">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
-            {busy && !msgs[msgs.length - 1]?.content && (
-              <div className="ai-msg assistant">
-                <div className="ai-bubble ai-typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            )}
-          </div>
 
-          <div className="ai-input">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder="基于知识库提问…（Enter 发送）"
-              disabled={busy}
-            />
-            {busy ? (
-              <button onClick={stop}>停止</button>
-            ) : (
-              <button onClick={send} disabled={!input.trim()}>
-                发送
-              </button>
-            )}
-          </div>
+              <div className="ai-input">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && send()}
+                  placeholder="基于知识库提问…（Enter 发送）"
+                  disabled={busy}
+                />
+                {busy ? (
+                  <button onClick={stop}>停止</button>
+                ) : (
+                  <button onClick={send} disabled={!input.trim()}>
+                    发送
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

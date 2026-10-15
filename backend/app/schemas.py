@@ -79,6 +79,8 @@ class UserOut(BaseModel):
     email: str | None = None
     avatar: str | None = None
     bio: str | None = None
+    # AI 助手的自定义名字；None = 还没起过（前端会引导）
+    ai_name: str | None = None
     role: str = "member"
     tenant_id: int | None = None
     created_at: datetime
@@ -111,6 +113,8 @@ class TenantJoin(BaseModel):
 class UserUpdate(BaseModel):
     bio: str | None = Field(default=None, max_length=200)
     username: str | None = Field(default=None, min_length=3, max_length=50)
+    # AI 助手名字：1–12 个字符（前后空白会被 strip，全空白视为非法，见 users.update_me）
+    ai_name: str | None = Field(default=None, max_length=12)
 
 
 class UserPublic(BaseModel):
