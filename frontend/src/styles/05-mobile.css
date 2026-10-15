@@ -280,9 +280,11 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .bd-glitch,
   .bd-dot,
   .orb,
-  .grid-overlay { animation: none; }
+  .grid-overlay,
+  .hero h1 { animation: none; }
   .bd-sweep,
-  .bd-glitch { opacity: 0; }
+  .bd-sweep.run,
+  .bd-glitch { opacity: 0; animation: none; }
 }
 
 /* 窄屏：HUD 缩小内缩，扫描线与噪点降强度，避免糊住正文 */
@@ -305,6 +307,9 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
       rgba(2, 1, 8, 0.36) 100%
     );
   }
+
+  /* 窄屏字号变小，色差偏移同步收紧——否则小字上 1.4px 的偏移会显得发虚 */
+  .hero h1 { --rgb-split: 0.9px; --rgb-split-hot: 3px; }
 }
 
 /* 极窄屏：层级列表会挤到标题，直接隐去 */

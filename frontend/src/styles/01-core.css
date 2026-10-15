@@ -30,8 +30,9 @@
 /* ============================================================
    超梦（Braindance）叠层
    《赛博朋克 2077》里回放他人感官记录时的观感：CRT 扫描线、
-   自上而下的扫描光带、偶发的信号故障、暗角聚焦，外加一圈 HUD。
-   全部挂在 .bg（fixed / z-index:-1）内，只做氛围，不承接任何交互。
+   扫描光带、偶发的信号故障、暗角聚焦，外加一圈 HUD。
+   全部挂在 .bg（fixed / z-index:-1 / pointer-events:none）内，
+   只做氛围，不承接任何交互。扫描光带是触发式的，见 src/scanPulse.js。
    ============================================================ */
 
 /* 扫描线：细密栅格缓慢爬行，模仿 BD 回放的显像管质地 */
@@ -47,7 +48,8 @@
 }
 @keyframes bdScroll { to { transform: translateY(3px); } }
 
-/* 扫描光带：BD 最具辨识度的一笔——一条青光自上而下扫过整个画面 */
+/* 扫描光带：BD 最具辨识度的一笔——一条青光自上而下扫过整个画面。
+   平时静止待命（opacity:0），由 triggerScan() 唤起一次快速扫描（约 1.1s 扫完整屏）。 */
 .bd-sweep {
   position: absolute; left: 0; right: 0; top: 0; height: 220px;
   background: linear-gradient(
@@ -60,7 +62,15 @@
   );
   mix-blend-mode: screen;
   opacity: 0;
-  animation: bdSweep 11s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform, opacity;
+}
+.bd-sweep.run { animation: bdScan 1.1s cubic-bezier(0.32, 0, 0.68, 1) 1 both; }
+/* 从画面上方之外启程，扫出下方之外结束；首尾各留一点渐入渐出，避免"啪"地出现 */
+@keyframes bdScan {
+  0%   { transform: translateY(-240px); opacity: 0; }
+  14%  { opacity: 1; }
+  86%  { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
 }
 /* 光带前沿的一道细亮线——BD 扫描头扫过时的那笔高光 */
 .bd-sweep::after {
@@ -258,8 +268,52 @@
 /* ---------- Hero ---------- */
 .hero { text-align: center; padding: 44px 0 8px; }
 .hero h1 {
+  /* 色差偏移量。--rgb-split 是常驻偏移，--rgb-split-hot 是抽搐瞬间的偏移；
+     抽成变量是为了让窄屏能整体收紧，不必复制一整套关键帧。 */
+  --rgb-split: 1.4px;
+  --rgb-split-hot: 4.5px;
   font-size: clamp(30px, 5vw, 52px); margin: 0 0 14px; line-height: 1.15; letter-spacing: -0.5px;
-  text-shadow: 0 0 40px rgba(123, 92, 255, 0.35);
+  /* 轻微色差（RGB 分离）：洋红偏左、青色偏右，赛博朋克标题最常见的处理，
+     再叠一层原有的紫色辉光。偏移量刻意压在 1.4px，只做质感不糊字 */
+  text-shadow:
+    calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
+    var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
+    0 0 40px rgba(123, 92, 255, 0.35);
+  animation: heroRgb 13s ease-in-out infinite;
+}
+/* 渐变文字（background-clip:text + color:transparent）用不了 text-shadow ——
+   阴影会把渐变色整片盖成纯色。改用 drop-shadow 作用于**已渲染的渐变**，
+   同样是「左右各一份偏移拷贝」，但保留渐变本身。 */
+.hero h1 .accent {
+  text-shadow: none;
+  filter:
+    drop-shadow(calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.45))
+    drop-shadow(var(--rgb-split) 0 rgba(34, 211, 238, 0.45));
+}
+/* 与背景的故障闪带同频（13s）：极短暂地抽一下，强化"信号不稳"的错觉 */
+@keyframes heroRgb {
+  0%, 91%, 95.5%, 100% {
+    transform: none;
+    text-shadow:
+      calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
+      var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
+      0 0 40px rgba(123, 92, 255, 0.35);
+  }
+  92.5% {
+    transform: translate(-1px, 0);
+    text-shadow:
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.7),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.7),
+      0 0 40px rgba(123, 92, 255, 0.35);
+  }
+  94% {
+    transform: translate(1.5px, 0.5px);
+    /* 这一帧左右对调，做出"撕裂"的错觉 */
+    text-shadow:
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.65),
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.65),
+      0 0 40px rgba(123, 92, 255, 0.35);
+  }
 }
 .hero p { margin: 0; color: var(--txt-dim); font-size: 16px; }
 /* hero 小徽章 */

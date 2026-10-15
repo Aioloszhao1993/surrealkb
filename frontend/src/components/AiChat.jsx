@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errMsg } from '../api'
 import useClickOutside from '../useClickOutside'
+import { triggerScan } from '../scanPulse'
 import { useAuth } from '../store'
 
 const SESSION_KEY = 'ai_session_key'
@@ -144,6 +145,7 @@ export default function AiChat() {
     }
     setMsgs((m) => [...m, { role: 'user', content: text }, { role: 'assistant', content: '', streaming: true }])
     setBusy(true)
+    triggerScan() // 提问 = 正在检索知识库，唤起背景扫描
     const ctrl = new AbortController()
     abortRef.current = ctrl
     try {

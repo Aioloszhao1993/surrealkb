@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api, { errMsg } from '../api'
+import { triggerScan } from '../scanPulse'
 import { sizeFmt } from '../components/format'
 import portal from '../components/Portal'
 
@@ -80,6 +81,7 @@ export default function Upload() {
           if (evt.total) setProgress(Math.round((evt.loaded / evt.total) * 100))
         },
       })
+      triggerScan() // 上传成功 = 机器开始读取新文档，唤起背景扫描
       nav(`/doc/${data.id}`)
     } catch (err) {
       // 同名冲突：后端返回 409，弹确认框
