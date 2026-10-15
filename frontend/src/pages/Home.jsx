@@ -80,9 +80,14 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) {
+      // 退出登录后把上一个账号的数据一起清掉：只 setLoading(false) 的话，
+      // 换个账号登录时新列表还没回来，会先闪一下上一个人的文档
+      setData({ items: [], total: 0, page_size: 12 })
+      setTags([])
       setLoading(false)
       return
     }
+    setLoading(true)
     load()
   }, [load, user])
 

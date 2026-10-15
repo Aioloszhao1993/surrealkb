@@ -194,7 +194,12 @@
 .container { flex: 1; width: min(1180px, 100% - 40px); margin: 0 auto; padding: 28px 0 60px; }
 
 .navbar {
-  position: sticky; top: 0; z-index: 20;
+  /* ⚠️ 必须高于 .ai-panel(60)。.navbar 带 backdrop-filter，自成层叠上下文，
+     里面账号下拉的 z-index:130 / 修改密码的 120 都只在这个上下文里有效，
+     换算到全页就等于 20 —— 面板一开就会把下拉盖住（实测点「退出登录」
+     命中的是面板，用户根本退不出去）。层级全表见文件末「层级约定」。
+     .ai-fab(80) 仍高于导航栏，保证球拖到顶上也抓得到。 */
+  position: sticky; top: 0; z-index: 65;
   display: flex; align-items: center; gap: 18px;
   padding: 14px 28px;
   background: rgba(10, 7, 30, 0.62);
@@ -533,8 +538,9 @@
 .ai-fab {
   position: fixed; right: 24px; bottom: 24px;
   /* 比 .ai-panel(60) 高一层：面板很高（560px），球被拖到视口中间时上方/下方都放不下，
-     面板会被夹到盖住球的位置上。球必须在最上层，否则一旦被盖住就再也抓不到了。 */
-  z-index: 61;
+     面板会被夹到盖住球的位置上。球必须在最上层，否则一旦被盖住就再也抓不到了。
+     同时要高于 .navbar(65)，否则球拖到页面顶部会被导航栏盖住。 */
+  z-index: 80;
   width: 56px; height: 56px; border-radius: 50%; border: none;
   font-size: 22px; color: #fff; line-height: 1;
   background: linear-gradient(135deg, var(--neon-1), var(--neon-3));
@@ -705,3 +711,24 @@
 .err-boundary-title { font-size: 20px; color: #e6dcff; }
 .err-boundary-msg { color: #aab0d0; font-size: 13px; max-width: 560px; word-break: break-word; }
 .err-boundary-actions { display: flex; gap: 10px; margin-top: 6px; }
+
+/* ============================================================
+   层级约定（z-index 全表，改动前先看这里）
+   从低到高：
+     -1  .bg                     全站背景层
+        （页面内容 / 卡片等，默认 auto）
+     50  .toast                  贴底居中的提示
+     60  .ai-panel               AI 助手面板
+     65  .navbar                 吸顶导航栏（内含账号下拉 130、修改密码 120，
+                                 都受它这个层叠上下文限制，换算到全页就是 65）
+     80  .ai-fab                 AI 悬浮球：必须高于面板（否则被盖住就抓不到），
+                                 也必须高于导航栏（否则拖到顶部会被导航栏盖住）
+    150  .modal-mask             编辑器类弹窗遮罩（04-editor.css）
+    200  .modal-back             账号类弹窗遮罩（02-account.css，一律经 Portal 挂 body）
+
+   ⚠️ 两条容易踩的：
+   ① `.navbar` 带 `backdrop-filter`，**自成层叠上下文**，它内部元素的 z-index
+      再大也只在导航栏这一层里比较。所以「让下拉盖住 AI 面板」只能靠抬导航栏
+      本身的 z-index，不能靠抬下拉自己的。
+   ② `.ai-fab` 与 `.ai-panel` 的相对高低是硬约束（见上方注释）。
+   ============================================================ */

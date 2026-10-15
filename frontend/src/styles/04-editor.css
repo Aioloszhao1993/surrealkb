@@ -1,6 +1,8 @@
 /* 通用模态框 */
 .modal-mask {
-  position: fixed; inset: 0; z-index: 60;
+  /* 要盖住 .navbar(65)，否则编辑文档时导航栏会浮在遮罩之上（可点）。
+     层级全表见 01-core.css 末尾「层级约定」。 */
+  position: fixed; inset: 0; z-index: 150;
   background: rgba(4,6,16,.68); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }

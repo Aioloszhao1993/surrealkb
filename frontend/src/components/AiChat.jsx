@@ -11,6 +11,12 @@ const POS_KEY = 'ai_fab_pos'
 const EDGE = 12
 /** 悬浮球与面板之间的间隙 */
 const GAP = 12
+/**
+ * 面板顶部至少留出的空间：避开设顶导航栏。
+ * 导航栏的 z-index(65) 高于面板(60)（见 01-core.css 末尾「层级约定」），
+ * 面板若贴到视口最顶端，自己那一条标题栏会滑到导航栏底下。
+ */
+const TOP_EDGE = 64
 
 /**
  * 还没起名（或未登录）时的默认名。用户注册后第一次打开面板会引导改名。
@@ -34,11 +40,30 @@ const CAN_HOVER =
   !!window.matchMedia &&
   window.matchMedia('(hover: hover)').matches
 
+function newSessionKey() {
+  return 'web_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
 function getSessionKey() {
   let k = localStorage.getItem(SESSION_KEY)
   if (!k) {
-    k = 'web_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+    k = newSessionKey()
     localStorage.setItem(SESSION_KEY, k)
+  }
+  return k
+}
+
+/**
+ * 换一个会话标识并落盘。退出登录 / 换账号时调用：
+ * 聊天记录是按 session_key 存的，继续沿用旧 key 会让下一个账号
+ * 接着上一个人的会话（服务端虽然按 user_id 过滤，但没必要冒险）。
+ */
+function rotateSessionKey() {
+  const k = newSessionKey()
+  try {
+    localStorage.setItem(SESSION_KEY, k)
+  } catch {
+    /* 隐私模式等写入失败：内存里换了就够了 */
   }
   return k
 }
@@ -80,11 +105,11 @@ function placePanel(fabRect, pw, ph) {
   const aboveTop = fabRect.top - GAP - ph
   const belowTop = fabRect.bottom + GAP
 
-  if (aboveTop >= EDGE) return { x: alignX(fabRect, pw, vw), y: Math.round(aboveTop) }
+  if (aboveTop >= TOP_EDGE) return { x: alignX(fabRect, pw, vw), y: Math.round(aboveTop) }
   if (belowTop + ph <= vh - EDGE) return { x: alignX(fabRect, pw, vw), y: Math.round(belowTop) }
 
-  // 上下放不下 → 摆到左右两侧，竖直方向尽量与球齐平再夹住
-  const y = Math.round(Math.min(Math.max(fabRect.top, EDGE), Math.max(EDGE, vh - ph - EDGE)))
+  // 上下放不下 → 摆到左右两侧，竖直方向尽量与球齐平再夹住（顶部要避开导航栏）
+  const y = Math.round(Math.min(Math.max(fabRect.top, TOP_EDGE), Math.max(TOP_EDGE, vh - ph - EDGE)))
   const rightX = fabRect.right + GAP
   if (rightX + pw <= vw - EDGE) return { x: Math.round(rightX), y }
   const leftX = fabRect.left - GAP - pw
@@ -94,7 +119,7 @@ function placePanel(fabRect, pw, ph) {
   const yFallback = fabRect.top >= vh - fabRect.bottom ? aboveTop : belowTop
   return {
     x: alignX(fabRect, pw, vw),
-    y: Math.round(Math.min(Math.max(yFallback, EDGE), Math.max(EDGE, vh - ph - EDGE))),
+    y: Math.round(Math.min(Math.max(yFallback, TOP_EDGE), Math.max(TOP_EDGE, vh - ph - EDGE))),
   }
 }
 
@@ -194,6 +219,34 @@ export default function AiChat() {
   const abortRef = useRef(null)
   const dragRef = useRef(null)
   const draggedRef = useRef(false)
+  // 上一次渲染时的账号 id，用来识别「退出登录 / 换账号」
+  const prevUid = useRef(user?.id ?? null)
+
+  /**
+   * 退出登录 / 换账号时，面板里不能还留着上一个人的对话。
+   *
+   * 直接把内存里的消息清掉（不是隐藏），同时换一个会话标识，
+   * 免得下一个账号接着用上一个人的 session_key。
+   *
+   * 组件首次挂载时 prevUid 就等于当前账号 → 直接跳过，
+   * 所以刷新页面不会把当前账号已有的会话记录冲掉。
+   */
+  useEffect(() => {
+    const uid = user?.id ?? null
+    if (uid === prevUid.current) return
+    prevUid.current = uid
+    abortRef.current?.abort() // 停掉可能还在流式输出的回答
+    abortRef.current = null
+    setBusy(false)
+    setInput('')
+    setNaming(false)
+    setNameDraft('')
+    setNameErr('')
+    sessionKey.current = rotateSessionKey()
+    setMsgs([welcome(aiName)])
+    // 只认账号变化；名字同步由下面 [aiName] 的 effect 负责
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   // 面板保持常驻悬浮形态（不遮挡页面），但点页面其他地方的空白处即收起。
   // 悬浮按钮本身要排除在「外部」之外，否则会和它自己的 toggle 打架。
