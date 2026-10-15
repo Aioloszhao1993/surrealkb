@@ -3,8 +3,21 @@
 前端在「登录用户还没给 AI 起过名」时于首次打开 AI 面板引导起名，
 判断依据就是 UserOut.ai_name 是否为 None，所以这里重点守住：
 默认 None / 能改 / 改完被 trim / 非法值被拒 / 改名字不会把别的字段带坏。
+
+另有一组直接盯 _system_prompt 的用例：名字写死在提示词里过一次（自称 Friday），
+导致「前端改了名、助手自我介绍还是旧名字」，这里防止再犯。
 """
 from fastapi.testclient import TestClient
+
+from app import ai_service
+from app.database import SessionLocal
+from app.models import User
+
+
+def _load_user(username: str):
+    """按用户名取一条真实 ORM 行（用于直接调 _system_prompt）。"""
+    db = SessionLocal()
+    return db, db.query(User).filter(User.username == username).first()
 
 
 def test_new_user_has_no_ai_name(client: TestClient, auth):
@@ -89,3 +102,56 @@ def test_ai_name_not_in_public_profile(client: TestClient, auth):
 
 def test_ai_name_requires_auth(client: TestClient):
     assert client.patch("/api/users/me", json={"ai_name": "x"}).status_code == 401
+
+
+# ---------------------------------------------------------------- 提示词里的名字
+def test_display_name_helper():
+    """未登录 / 没起过名 → 默认名；起过名 → 用设置的名字（并去空白）。"""
+
+    class Row:
+        def __init__(self, ai_name):
+            self.ai_name = ai_name
+
+    assert ai_service.ai_display_name(None) == ai_service.DEFAULT_AI_NAME
+    assert ai_service.ai_display_name(Row(None)) == ai_service.DEFAULT_AI_NAME
+    assert ai_service.ai_display_name(Row("")) == ai_service.DEFAULT_AI_NAME
+    assert ai_service.ai_display_name(Row("   ")) == ai_service.DEFAULT_AI_NAME
+    assert ai_service.ai_display_name(Row("  小猫 ")) == "小猫"
+
+
+def test_system_prompt_uses_default_name(client: TestClient, auth):
+    """没起过名时，提示词里用默认名，且**不能**再出现写死的 Friday。"""
+    _, me = auth
+    db, user = _load_user(me["username"])
+    try:
+        system, _ = ai_service._system_prompt(db, "你叫什么名字", user, user.tenant_id)
+    finally:
+        db.close()
+    assert ai_service.DEFAULT_AI_NAME in system
+    assert "Friday" not in system
+
+
+def test_system_prompt_uses_custom_name(client: TestClient, auth):
+    """改了名之后，提示词里的名字必须跟着变 —— 这正是用户报的 bug。"""
+    headers, me = auth
+    r = client.patch("/api/users/me", headers=headers, json={"ai_name": "小猫"})
+    assert r.status_code == 200, r.text
+    db, user = _load_user(me["username"])
+    try:
+        system, _ = ai_service._system_prompt(db, "你叫什么名字", user, user.tenant_id)
+    finally:
+        db.close()
+    assert "小猫" in system
+    assert "Friday" not in system
+    assert ai_service.DEFAULT_AI_NAME not in system
+
+
+def test_system_prompt_guides_rename(client: TestClient, auth):
+    """用户要改名时，助手应引导去面板上的 ✎，而不是硬说自己不能改。"""
+    _, me = auth
+    db, user = _load_user(me["username"])
+    try:
+        system, _ = ai_service._system_prompt(db, "给你改名叫大黄吧", user, user.tenant_id)
+    finally:
+        db.close()
+    assert "✎" in system and "改名" in system

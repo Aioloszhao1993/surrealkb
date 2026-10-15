@@ -12,12 +12,19 @@ const EDGE = 12
 /** 悬浮球与面板之间的间隙 */
 const GAP = 12
 
-/** 还没起名时的默认名（也是「跳过」时会保存的值） */
-const DEFAULT_AI_NAME = 'Friday'
+/**
+ * 还没起名（或未登录）时的默认名。用户注册后第一次打开面板会引导改名。
+ * ⚠️ 后端 `backend/app/ai_service.py` 的 DEFAULT_AI_NAME 是同一个值的副本 ——
+ *    助手自我介绍时用的名字取自服务端（users.ai_name），两边必须一致，
+ *    否则会出现「面板叫小知、助手自称 Friday」。
+ */
+const DEFAULT_AI_NAME = '小知'
 /** 名字最长几个字符（后端 UserUpdate.ai_name 同样是 12，两边要一致） */
 const MAX_AI_NAME = 12
-/** 起名步骤里的快速选择 */
-const NAME_SUGGESTIONS = ['Friday', '小知', 'Nova']
+/** 起名步骤里的快速选择（第一个是默认名） */
+const NAME_SUGGESTIONS = ['小知', 'Friday', 'Nova']
+/** 输入框里的示例：列出默认名之外的几个建议 */
+const NAME_PLACEHOLDER = '例如 小知、Friday…'
 /**
  * 触摸设备上不给输入框自动聚焦：唤起软键盘会把面板顶得看不见输入框，
  * 而手机端面板是贴底通栏的。
@@ -525,7 +532,7 @@ export default function AiChat() {
                 value={nameDraft}
                 maxLength={MAX_AI_NAME}
                 autoFocus={CAN_HOVER}
-                placeholder={`例如 ${DEFAULT_AI_NAME}、小知…`}
+                placeholder={NAME_PLACEHOLDER}
                 aria-label="AI 助手名字"
                 onChange={(e) => {
                   setNameDraft(e.target.value)

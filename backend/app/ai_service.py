@@ -237,6 +237,17 @@ def search_chunks(
 
 
 # ---------------------------------------------------------------- 提示词
+# AI 助手的默认名字。用户没起过名（ai_name 为 NULL）或未登录时用它。
+# ⚠️ 前端 `frontend/src/components/AiChat.jsx` 的 DEFAULT_AI_NAME 是同一个值的副本，
+#    改这里要一起改（前端要在拿到用户信息前就能把默认名渲染出来，没法等接口）。
+DEFAULT_AI_NAME = "小知"
+
+
+def ai_display_name(user: User | None) -> str:
+    """当前用户给 AI 起的名字；没起过名 / 未登录则用默认名。"""
+    return ((user.ai_name or "").strip() if user else "") or DEFAULT_AI_NAME
+
+
 def _system_prompt(
     db: Session, question: str, user: User | None, tenant_id: int | None
 ) -> tuple[str, list[dict]]:
@@ -254,16 +265,25 @@ def _system_prompt(
         kb = "（知识库中没有检索到相关内容）"
 
     who = f"当前登录用户：{user.username}" if user else "当前为游客（未登录）"
+    # 名字必须来自用户设置（users.ai_name），不能写死 —— 否则用户改完名字，
+    # 助手自我介绍时仍会说旧名字。
+    name = ai_display_name(user)
     system = (
-        "你是「SurrealKB 知识库」的 AI 助手 Friday，回答专业、简洁、可靠。\n"
+        f"你是「SurrealKB 知识库」的 AI 助手，名字叫「{name}」，回答专业、简洁、可靠。\n"
+        f"这个名字是用户设定的：被问到名字时就直接回答「{name}」，不要提别的名字"
+        "（如果历史对话里出现过其它名字，那是旧设置，以本句为准）。\n"
+        "用户想给你改名时，告诉他点 AI 面板右上角的 ✎ 就能改（你自己没有改名的能力，"
+        "不要说「已经改了」，也不要拒绝说自己不能改就完了）。\n"
         "用户会基于自己知识库里的文档提问，你要严格依据下面的『检索片段』作答。\n"
         f"{who}\n\n"
         f"检索片段（来自本知识库，按相关度排序）：\n{kb}\n\n"
         "回答要求：\n"
-        "1. 只依据上面的片段回答；片段不足以回答时，明确说「知识库中未找到相关信息」，不要编造。\n"
+        "1. 知识库相关的问题只依据上面的片段回答；片段不足以回答时，明确说「知识库中未找到相关信息」，不要编造。\n"
         "2. 引用信息时在句末标注来源编号，如 [1]、[2]。\n"
-        "3. 用中文回答，条理清晰，控制在 300 字以内，不要输出 Markdown 表格。"
+        "3. 用中文回答，条理清晰，控制在 300 字以内，不要输出 Markdown 表格。\n"
+        "4. 第 1 条只约束知识库内容；问及你自己的名字或身份时，按开头那句设定回答即可。"
     )
+
     sources = [
         {
             "document_id": doc.id,
