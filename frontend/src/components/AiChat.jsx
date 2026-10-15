@@ -4,6 +4,7 @@ import api, { errMsg } from '../api'
 import useClickOutside from '../useClickOutside'
 import { useAuth } from '../store'
 
+/** 会话标识的 localStorage 前缀：真正的键是 `ai_session_key:u<用户id>` / `…:guest` */
 const SESSION_KEY = 'ai_session_key'
 /** 悬浮球位置存这里，刷新后还在原处 */
 const POS_KEY = 'ai_fab_pos'
@@ -44,28 +45,33 @@ function newSessionKey() {
   return 'web_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-function getSessionKey() {
-  let k = localStorage.getItem(SESSION_KEY)
-  if (!k) {
-    k = newSessionKey()
-    localStorage.setItem(SESSION_KEY, k)
-  }
-  return k
+/**
+ * 聊天记录是按 session_key 存在服务端的，所以**每个账号用自己的 key**：
+ * - 退出登录后换个人登录，读到的是他自己的会话，看不到上一个人的
+ * - 本人重新登录后还能接着看自己刚才的对话
+ * 服务端读取时还会再按 user_id 过滤一道（见 ai_service.get_history），
+ * 所以就算 key 撞上了也串不了号。
+ */
+function sessionKeyName(uid) {
+  return uid ? `${SESSION_KEY}:u${uid}` : `${SESSION_KEY}:guest`
 }
 
-/**
- * 换一个会话标识并落盘。退出登录 / 换账号时调用：
- * 聊天记录是按 session_key 存的，继续沿用旧 key 会让下一个账号
- * 接着上一个人的会话（服务端虽然按 user_id 过滤，但没必要冒险）。
- */
-function rotateSessionKey() {
-  const k = newSessionKey()
+function getSessionKey(uid) {
+  const name = sessionKeyName(uid)
   try {
-    localStorage.setItem(SESSION_KEY, k)
+    const k = localStorage.getItem(name)
+    if (k) return k
+    // 一次性迁移：老版本把会话记在全局的 `ai_session_key` 上（全浏览器共用一个）。
+    // 里面可能混着多个账号的消息，但服务端按 user_id 过滤，沿用它不会串号，
+    // 只是让升级前那批对话不至于凭空消失。
+    const legacy = localStorage.getItem(SESSION_KEY)
+    const k2 = legacy || newSessionKey()
+    localStorage.setItem(name, k2)
+    return k2
   } catch {
-    /* 隐私模式等写入失败：内存里换了就够了 */
+    // 隐私模式等写不了 localStorage：本次会话内仍然可用（内存里那份）
+    return newSessionKey()
   }
-  return k
 }
 
 function loadFabPos() {
@@ -215,7 +221,7 @@ export default function AiChat() {
   const boxRef = useRef(null)
   const fabRef = useRef(null)
   const panelRef = useRef(null)
-  const sessionKey = useRef(getSessionKey())
+  const sessionKey = useRef(getSessionKey(user?.id ?? null))
   const abortRef = useRef(null)
   const dragRef = useRef(null)
   const draggedRef = useRef(false)
@@ -225,11 +231,12 @@ export default function AiChat() {
   /**
    * 退出登录 / 换账号时，面板里不能还留着上一个人的对话。
    *
-   * 直接把内存里的消息清掉（不是隐藏），同时换一个会话标识，
-   * 免得下一个账号接着用上一个人的 session_key。
+   * 做法是**把内存里的消息清掉**，并按账号切换会话标识（见 getSessionKey）：
+   * 记忆里那批消息不会跨账号残留；换回来的账号因为用的是自己的 key，
+   * 服务端会把他的历史重新给回来（下面拉历史的 effect 负责）。
    *
    * 组件首次挂载时 prevUid 就等于当前账号 → 直接跳过，
-   * 所以刷新页面不会把当前账号已有的会话记录冲掉。
+   * 所以刷新页面不会平白清一次。
    */
   useEffect(() => {
     const uid = user?.id ?? null
@@ -242,7 +249,7 @@ export default function AiChat() {
     setNaming(false)
     setNameDraft('')
     setNameErr('')
-    sessionKey.current = rotateSessionKey()
+    sessionKey.current = getSessionKey(uid)
     setMsgs([welcome(aiName)])
     // 只认账号变化；名字同步由下面 [aiName] 的 effect 负责
     // eslint-disable-next-line react-hooks/exhaustive-deps
