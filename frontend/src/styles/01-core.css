@@ -531,13 +531,25 @@
 
 /* ---------- AI 助手 ---------- */
 .ai-fab {
-  position: fixed; right: 24px; bottom: 24px; z-index: 60;
+  position: fixed; right: 24px; bottom: 24px;
+  /* 比 .ai-panel(60) 高一层：面板很高（560px），球被拖到视口中间时上方/下方都放不下，
+     面板会被夹到盖住球的位置上。球必须在最上层，否则一旦被盖住就再也抓不到了。 */
+  z-index: 61;
   width: 56px; height: 56px; border-radius: 50%; border: none;
   font-size: 22px; color: #fff; line-height: 1;
   background: linear-gradient(135deg, var(--neon-1), var(--neon-3));
   box-shadow: 0 12px 34px -8px rgba(123, 92, 255, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
   transition: transform 0.18s, box-shadow 0.18s;
+  /* 可拖动：抓手光标；touch-action:none 防止手指拖动时把页面一起滚了 */
+  cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;
 }
+/* 拖动过之后位置由 JS 接管（--ai-fab-x/y 内联给出），不再用 right/bottom。
+   注意 .ai-fab.free 特异性高于 05-mobile.css 里的 .ai-fab，手机端同样生效。 */
+.ai-fab.free { left: var(--ai-fab-x); top: var(--ai-fab-y); right: auto; bottom: auto; }
+.ai-fab.dragging { cursor: grabbing; }
+/* 拖动中不要有 hover 的位移/放大，否则手感是「飘」的 */
+.ai-fab.dragging:hover { transform: none; }
 .ai-fab:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 18px 44px -8px rgba(255, 92, 200, 0.8); }
 .ai-fab.active { background: rgba(30, 20, 60, 0.9); border: 1px solid var(--panel-brd); font-size: 18px; }
 
@@ -549,6 +561,11 @@
   border: 1px solid var(--panel-brd); backdrop-filter: blur(20px);
   box-shadow: var(--shadow);
   animation: ai-pop 0.2s ease-out;
+}
+/* 悬浮球被拖走后，面板跟着它走（--ai-panel-x/y 由 JS 按实测尺寸算出并夹在视口内）。
+   只在宽屏启用：手机上面板是「贴底通栏」更合用，交给 05-mobile.css 管。 */
+@media (min-width: 821px) {
+  .ai-panel.free { left: var(--ai-panel-x); top: var(--ai-panel-y); right: auto; bottom: auto; }
 }
 @keyframes ai-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
 

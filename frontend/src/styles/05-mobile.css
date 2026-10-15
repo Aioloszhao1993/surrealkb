@@ -276,6 +276,8 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   /* 头像按钮的 hover 放大在触屏上会「粘住」，去掉（展开态 .open 的放大保留） */
   .account-trigger:hover { transform: none; }
   .account-trigger:hover .avatar { transform: none; }
+  /* 悬浮球同理：手机上拖完手指抬起后 hover 会粘住 */
+  .ai-fab:hover { transform: none; }
 
   /* ---------- 触屏热区 ----------
      实测 390px 下：头像按钮 30x30、弹窗关闭按钮 30x30、AI 面板「清空/收起」
