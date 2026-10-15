@@ -34,9 +34,13 @@ function useBdTimecode() {
  * 2) 超梦（Braindance）叠层 —— 回放扫描线、扫描光带、偶发故障闪带、
  *    暗角，以及一圈 HUD（四角括号 / 时间码 / 进度轨 / 层级列表）。
  *
- * 扫描光带是**触发式**的（见 `src/scanPulse.js`）：平时静止待命，
+ * 扫描是**触发式**的（见 `src/scanPulse.js`）：平时静止待命，
  * 由用户「让机器去读知识库」的动作（搜索 / 提问 / 上传）唤起一次快速扫描。
- * 触发时递增 scanId，靠 key 让元素重建，动画自然从头播放，播完即卸载。
+ * 扫描期间会同时出现三样东西，播完一起撤掉：
+ *   ① `.bd-sweep` 自上而下的扫描光带
+ *   ② `.bd-glitch` 画面上被撕开的 RGB 故障闪带
+ *   ③ 根元素上的 `.bd-scanning`（供标题的色差抽搐等其它元素挂钩，见 01-core.css）
+ * **这三样平时一个都不出现**，避免页面一直在自己闪。
  *
  * 卸载有两条路：animationend 主动上报 + 一个 1.5s 的定时器兜底。
  * 只靠前者是不够的 —— 动画被禁用时（系统开了「减弱动态效果」、或元素被
@@ -53,6 +57,7 @@ export default function Background() {
 
   const endScan = () => {
     clearTimeout(scanTimer.current)
+    document.documentElement.classList.remove('bd-scanning')
     setScanId(0)
   }
 
@@ -60,14 +65,16 @@ export default function Background() {
     const onScan = () => {
       // 尊重系统「减弱动态效果」：直接不播。CSS 里还有一层保险，这里省掉一次无谓渲染
       if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+      document.documentElement.classList.add('bd-scanning')
       setScanId((v) => v + 1)
       clearTimeout(scanTimer.current)
-      scanTimer.current = setTimeout(() => setScanId(0), SCAN_MS)
+      scanTimer.current = setTimeout(endScan, SCAN_MS)
     }
     window.addEventListener(SCAN_EVENT, onScan)
     return () => {
       window.removeEventListener(SCAN_EVENT, onScan)
       clearTimeout(scanTimer.current)
+      document.documentElement.classList.remove('bd-scanning')
     }
   }, [])
 
@@ -80,10 +87,11 @@ export default function Background() {
 
       {/* ---- 超梦（Braindance）叠层 ---- */}
       <div className="bd-scanlines" />
+      {/* 扫描光带与故障闪带都只在扫描期间存在，平时 DOM 里没有这两个节点 */}
       {scanId > 0 && (
         <div className="bd-sweep run" key={scanId} onAnimationEnd={endScan} />
       )}
-      <div className="bd-glitch" />
+      {scanId > 0 && <div className="bd-glitch run" key={'g' + scanId} />}
       <div className="bd-vignette" />
 
       <div className="bd-hud">

@@ -273,7 +273,7 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
    超梦（Braindance）叠层的降级
    ============================================================ */
 
-/* 尊重「减弱动态效果」：停掉所有氛围动画，闪带直接隐藏 */
+/* 尊重「减弱动态效果」：停掉所有氛围动画，扫描相关的直接隐藏 */
 @media (prefers-reduced-motion: reduce) {
   .bd-scanlines,
   .bd-sweep,
@@ -281,10 +281,12 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .bd-dot,
   .orb,
   .grid-overlay,
-  .hero h1 { animation: none; }
+  .hero h1,
+  html.bd-scanning .hero h1 { animation: none; }
   .bd-sweep,
   .bd-sweep.run,
-  .bd-glitch { opacity: 0; animation: none; }
+  .bd-glitch,
+  .bd-glitch.run { opacity: 0; animation: none; }
 }
 
 /* 窄屏：HUD 缩小内缩，扫描线与噪点降强度，避免糊住正文 */

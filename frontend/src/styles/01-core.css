@@ -81,14 +81,9 @@
     rgba(148, 240, 255, 0.55) 82%, transparent 100%);
   box-shadow: 0 0 12px rgba(94, 234, 255, 0.55);
 }
-@keyframes bdSweep {
-  0%   { transform: translateY(-240px); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateY(100vh); opacity: 0; }
-}
 
-/* 故障闪带：每轮偶尔抽一下的 RGB 撕裂 */
+/* 故障闪带：画面上被撕开的一道 RGB 亮线。
+   与光带一样只在扫描期间出现（Body 里由 scanId 控制挂载），平时 DOM 中不存在。 */
 .bd-glitch {
   position: absolute; left: 0; right: 0; top: 34%; height: 3px;
   background: linear-gradient(
@@ -101,14 +96,19 @@
   );
   mix-blend-mode: screen;
   opacity: 0;
-  animation: bdGlitch 13s ease-in-out infinite;
+  will-change: transform, opacity;
 }
+.bd-glitch.run { animation: bdGlitch 1.1s linear 1 both; }
+/* 一次扫描里撕三下（约在 0.07s / 0.55s / 0.9s），像读取时信号不稳 */
 @keyframes bdGlitch {
-  0%, 86%  { opacity: 0; transform: none; }
-  87%      { opacity: 0.85; transform: translateY(0) scaleY(1); }
-  88%      { opacity: 0.12; transform: translateY(-7px) scaleY(2.6); }
-  89%      { opacity: 0.7; transform: translateY(9px) scaleY(1.3); }
-  90%, 100% { opacity: 0; transform: none; }
+  0%        { opacity: 0; transform: none; }
+  6%        { opacity: 0.85; transform: translateY(-6px) scaleY(2.6); }
+  12%       { opacity: 0.12; transform: translateY(4px) scaleY(1.1); }
+  19%, 48%  { opacity: 0; transform: none; }
+  55%       { opacity: 0.7; transform: translateY(3px) scaleY(1.6); }
+  62%, 82%  { opacity: 0; transform: none; }
+  88%       { opacity: 0.5; transform: translateY(-4px) scaleY(2.2); }
+  95%, 100% { opacity: 0; transform: none; }
 }
 
 /* 暗角：把注意力收回画面中部，BD 回放特有的"聚焦感" */
@@ -279,7 +279,6 @@
     calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
     var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
     0 0 40px rgba(123, 92, 255, 0.35);
-  animation: heroRgb 13s ease-in-out infinite;
 }
 /* 渐变文字（background-clip:text + color:transparent）用不了 text-shadow ——
    阴影会把渐变色整片盖成纯色。改用 drop-shadow 作用于**已渲染的渐变**，
@@ -290,28 +289,45 @@
     drop-shadow(calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.45))
     drop-shadow(var(--rgb-split) 0 rgba(34, 211, 238, 0.45));
 }
-/* 与背景的故障闪带同频（13s）：极短暂地抽一下，强化"信号不稳"的错觉 */
-@keyframes heroRgb {
-  0%, 91%, 95.5%, 100% {
+/* 抽搐只在扫描期间发生（根元素上的 .bd-scanning 由 Background 打上/撤下）。
+   平时标题只有上面那份静态色差，不会自己抽。 */
+html.bd-scanning .hero h1 { animation: heroRgbTear 1.1s linear 1 both; }
+/* 与扫描同一拍：开头猛撕一下、中段再轻轻扯一次，1.1s 内收干净 */
+@keyframes heroRgbTear {
+  0%, 4% {
     transform: none;
     text-shadow:
       calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
       var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
-  92.5% {
-    transform: translate(-1px, 0);
+  10% {
+    transform: translate(-1.5px, 0);
     text-shadow:
-      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.7),
-      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.7),
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.75),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.75),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
-  94% {
-    transform: translate(1.5px, 0.5px);
+  17% {
+    transform: translate(2px, 0.5px);
     /* 这一帧左右对调，做出"撕裂"的错觉 */
     text-shadow:
-      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.65),
-      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.65),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.7),
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.7),
+      0 0 40px rgba(123, 92, 255, 0.35);
+  }
+  26%, 54% {
+    transform: none;
+    text-shadow:
+      calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
+      var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
+      0 0 40px rgba(123, 92, 255, 0.35);
+  }
+  60%, 100% {
+    transform: translate(0, 0);
+    text-shadow:
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.55),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.55),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
 }
