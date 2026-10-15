@@ -4,7 +4,9 @@
 """
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from .security import password_error
 
 
 # ---------- 用户 ----------
@@ -17,10 +19,38 @@ class UserCreate(BaseModel):
     tenant_name: str | None = Field(default=None, max_length=100)
     invite_code: str | None = Field(default=None, max_length=16)
 
+    @model_validator(mode="after")
+    def _check_password(self) -> "UserCreate":
+        """注册时的密码强度校验（原先只有前端拦，直接调接口可绕过）。"""
+        err = password_error(self.password, self.username)
+        if err:
+            raise ValueError(err)
+        return self
+
 
 class UserLogin(BaseModel):
     username: str
     password: str
+
+
+class PasswordChange(BaseModel):
+    """修改（或首次设置）密码。
+
+    - 已有密码的账号：old_password 必填。
+    - 一直是微信扫码登录、从没设过密码的账号：old_password 留空即可，直接设置新密码
+      （此时用户已通过微信身份认证，允许其设置密码）。
+    """
+
+    old_password: str = Field(default="", max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def _check_new_password(cls, v: str) -> str:
+        err = password_error(v)
+        if err:
+            raise ValueError(err)
+        return v
 
 
 class AvatarUpdate(BaseModel):

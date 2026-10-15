@@ -161,12 +161,13 @@
 .account-stats { display: flex; gap: 14px; flex-wrap: wrap; margin: 13px 0; font-size: 12px; color: var(--faint); }
 .account-stats b { color: var(--txt); font-size: 14.5px; margin-right: 3px; }
 .account-links { display: grid; gap: 4px; padding: 6px 0 12px; border-top: 1px solid var(--panel-brd); }
-.account-links a {
+.account-links a, .account-links button {
   display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
   color: var(--txt-dim); text-decoration: none; font-size: 13.5px; transition: 0.15s;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit;
 }
-.account-links a span { width: 18px; text-align: center; color: var(--neon-2); }
-.account-links a:hover { background: rgba(155, 89, 255, 0.14); color: var(--txt); }
+.account-links a span, .account-links button span { width: 18px; text-align: center; color: var(--neon-2); }
+.account-links a:hover, .account-links button:hover { background: rgba(155, 89, 255, 0.14); color: var(--txt); }
 .account-logout {
   width: 100%; padding: 10px; border-radius: 11px; cursor: pointer; font-size: 13.5px; font-weight: 600;
   color: #ff9bb8; background: rgba(255, 90, 140, 0.1); border: 1px solid rgba(255, 90, 140, 0.32); transition: 0.15s;

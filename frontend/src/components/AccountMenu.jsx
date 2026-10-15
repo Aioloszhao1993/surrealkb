@@ -4,6 +4,7 @@ import api from '../api'
 import { useAuth } from '../store'
 import { num } from './format'
 import Avatar from './Avatar'
+import ChangePassword from './ChangePassword'
 
 /**
  * B 站式「账号头像」入口：
@@ -16,6 +17,7 @@ export default function AccountMenu() {
   const [open, setOpen] = useState(false)
   const [stats, setStats] = useState(null)
   const [tenant, setTenant] = useState(null)
+  const [showPwd, setShowPwd] = useState(false)
   const timer = useRef(null)
   const wrapRef = useRef(null)
 
@@ -105,6 +107,15 @@ export default function AccountMenu() {
             <Link to="/team" onClick={() => setOpen(false)}>
               <span>◈</span> 知识库团队
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setShowPwd(true)
+              }}
+            >
+              <span>⚿</span> 修改密码
+            </button>
           </div>
 
           <button className="account-logout" onClick={logout}>
@@ -112,6 +123,8 @@ export default function AccountMenu() {
           </button>
         </div>
       )}
+
+      {showPwd && <ChangePassword onClose={() => setShowPwd(false)} />}
     </div>
   )
 }

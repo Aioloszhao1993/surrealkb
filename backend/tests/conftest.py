@@ -25,6 +25,23 @@ def client() -> TestClient:
         yield c
 
 
+@pytest.fixture(autouse=True)
+def _reset_limits():
+    """每个用例前后清空限流与登录失败计数。
+
+    限流是按「客户端 IP + 路径」的内存计数（ratelimit.py），登录失败锁定
+    是按账号的内存计数（login_guard.py）。测试里登录/注册调用较多，
+    不清零会被上一个用例的计数影响，出现莫名其妙的 429。
+    """
+    from app import login_guard, ratelimit
+
+    ratelimit.reset_all()
+    login_guard.reset_all()
+    yield
+    ratelimit.reset_all()
+    login_guard.reset_all()
+
+
 _counter = {"n": 0}
 
 

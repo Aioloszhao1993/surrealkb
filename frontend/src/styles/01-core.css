@@ -201,6 +201,13 @@
 .field input:focus, .field textarea:focus { border-color: var(--neon-2); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15); }
 .auth-foot { margin: 18px 0 0; text-align: center; color: var(--txt-dim); font-size: 14px; }
 .auth-foot a { color: var(--neon-2); }
+/* 认证弹窗：微信按钮下的引导语、「忘记密码」的展开说明 */
+.auth-hint { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--faint); }
+.auth-note { margin: 12px 0 0; padding: 11px 13px; border-radius: 10px; text-align: left;
+  font-size: 12.5px; line-height: 1.7; color: var(--txt-dim);
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--panel-brd); }
+.foot-sep { margin: 0 8px; color: var(--faint); }
+.field-hint { font-style: normal; font-size: 12px; color: var(--faint); }
 
 .file-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   padding: 34px 26px; border-radius: 14px; cursor: pointer; text-align: center; min-height: 128px;

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { errMsg } from '../api'
+import { passwordProblem } from '../passwordRules'
 import { useAuth } from '../store'
 import PresetGrid from '../components/PresetGrid'
 
@@ -21,7 +22,8 @@ export default function Register() {
     e.preventDefault()
     setError('')
     if (username.trim().length < 3) return setError('用户名至少 3 个字符')
-    if (password.length < 6) return setError('密码至少 6 位')
+    const pwdErr = passwordProblem(password, username)
+    if (pwdErr) return setError(pwdErr)
     if (mode === 'create' && !tenantName.trim()) return setError('请填写知识库名称')
     if (mode === 'join' && !inviteCode.trim()) return setError('请填写邀请码')
     setBusy(true)
@@ -66,6 +68,7 @@ export default function Register() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
           />
+          <em className="field-hint">至少 6 位，不能全是数字</em>
         </label>
 
         <div className="toggle-row">

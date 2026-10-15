@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     # 是否关闭注册（true = 只能由已有用户用邀请码加入，杜绝批量小号）。
     disable_register: bool = False
 
+    # ---------- 登录防爆破（账号级）----------
+    # ratelimit.py 只按「IP + 路径」限流，攻击者换 IP 就能继续对同一账号定向爆破，
+    # 这里再按「用户名」补一层失败锁定。连续失败达到阈值后锁定一段时间，登录成功即清零。
+    # 0 = 关闭该保护。
+    login_max_failures: int = 5
+    login_lockout_seconds: int = 900
+
     # ---------- 微信扫码登录（微信开放平台「网站应用」）----------
     # 留空则自动进入本地 Mock 模式（无需真实公众号即可演示）
     wechat_app_id: str = ""

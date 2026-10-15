@@ -18,13 +18,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import wechat_service
+from .. import login_guard, wechat_service
 from ..config import settings
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Tenant, User
 from ..schemas import (
     AvatarUpdate,
+    PasswordChange,
     Token,
     UserCreate,
     UserLogin,
@@ -32,7 +33,13 @@ from ..schemas import (
     WechatPollOut,
     WxMpBindPayload,
 )
-from ..security import create_access_token, hash_password, verify_password
+from ..security import (
+    create_access_token,
+    has_password,
+    hash_password,
+    password_error,
+    verify_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -101,12 +108,37 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> Token:
     return Token(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
 
 
+def _authenticate(db: Session, username: str, password: str) -> User:
+    """账号密码校验，带**账号级**失败锁定（防换 IP 后继续定向爆破同一账号）。
+
+    - 失败提示对「用户不存在」和「密码错误」完全一致，避免账号枚举。
+    - 连续失败达阈值后锁定一段时间（见 config.login_max_failures / login_lockout_seconds），
+      登录成功立即清零。
+    """
+    wait = login_guard.locked_seconds(username)
+    if wait > 0:
+        minutes = max(1, (wait + 59) // 60)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"密码错误次数过多，该账号已被暂时锁定，请约 {minutes} 分钟后再试",
+        )
+
+    user = db.scalar(select(User).where(User.username == username))
+    if not user or not verify_password(password, user.hashed_password):
+        left = login_guard.record_failure(username)
+        detail = "用户名或密码错误"
+        if left > 0:
+            detail += f"（还可尝试 {left} 次，超出后账号会暂时锁定）"
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail)
+
+    login_guard.clear(username)
+    return user
+
+
 @router.post("/login", response_model=Token)
 def login(payload: UserLogin, db: Session = Depends(get_db)) -> Token:
     """前端 JSON 登录。"""
-    user = db.scalar(select(User).where(User.username == payload.username))
-    if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "用户名或密码错误")
+    user = _authenticate(db, payload.username, payload.password)
     return Token(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
 
 
@@ -115,10 +147,37 @@ def login_form(
     form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ) -> Token:
     """供 Swagger 调试使用的表单登录。"""
-    user = db.scalar(select(User).where(User.username == form.username))
-    if not user or not verify_password(form.password, user.hashed_password):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "用户名或密码错误")
+    user = _authenticate(db, form.username, form.password)
     return Token(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
+
+
+@router.post("/password")
+def change_password(
+    payload: PasswordChange,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """修改密码；微信扫码登录用户（从没设过密码）可直接设置新密码。
+
+    注意：改密码**不会**立刻吊销已签发的 JWT —— 当前 token 只带 sub/exp，
+    没有 jti / 版本号可作失效依据。若怀疑账号已泄露，请在服务器上执行
+    `backend/reset_password.py` 重置并同步更换 SECRET_KEY。
+    """
+    if has_password(user.hashed_password):
+        if not payload.old_password:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "请输入原密码")
+        if not verify_password(payload.old_password, user.hashed_password):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "原密码不正确")
+        if payload.old_password == payload.new_password:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "新密码不能与原密码相同")
+
+    err = password_error(payload.new_password, user.username)
+    if err:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, err)
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"ok": True, "detail": "密码已更新"}
 
 
 @router.get("/me", response_model=UserOut)
