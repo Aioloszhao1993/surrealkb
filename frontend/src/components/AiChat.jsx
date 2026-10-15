@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api, { errMsg } from '../api'
 import useClickOutside from '../useClickOutside'
-import { triggerScan } from '../scanPulse'
 import { useAuth } from '../store'
 
 const SESSION_KEY = 'ai_session_key'
@@ -134,10 +133,7 @@ export default function AiChat() {
   const ask = async (q) => {
     const text = (q || '').trim()
     if (!text || busy) return
-    // 提问 = 让机器去读知识库，唤起背景扫描。
-    // 注意放在登录判断**之前**：否则未登录时提问没有任何视觉反馈，
-    // 用户会以为「提问不触发扫描」是功能坏了。
-    triggerScan()
+    // 注意：提问**不**触发背景扫描（按用户要求，只有上传文档时才扫）
     if (!user) {
       setOpen(true)
       setMsgs((m) => [

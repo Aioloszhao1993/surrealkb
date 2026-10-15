@@ -279,7 +279,7 @@
     calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
     var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
     0 0 40px rgba(123, 92, 255, 0.35);
-  animation: heroRgb 13s ease-in-out infinite;
+  animation: heroRgb 5s ease-in-out infinite;
 }
 /* 渐变文字（background-clip:text + color:transparent）用不了 text-shadow ——
    阴影会把渐变色整片盖成纯色。改用 drop-shadow 作用于**已渲染的渐变**，
@@ -290,8 +290,9 @@
     drop-shadow(calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.45))
     drop-shadow(var(--rgb-split) 0 rgba(34, 211, 238, 0.45));
 }
-/* 标题自己的节奏：每 13s 极短暂地抽一下，强化"信号不稳"的错觉。
-   与背景的故障闪带**没有**关系 —— 闪带只在扫描时出现，标题是常驻氛围。 */
+/* 标题自己的节奏：每 5s 极短暂地抽一下，强化"信号不稳"的错觉。
+   与背景的故障闪带**没有**关系 —— 闪带只在扫描（上传文档）时出现。
+   间隔就是这里的 5s，想改快改慢只动这一个数。 */
 @keyframes heroRgb {
   0%, 91%, 95.5%, 100% {
     transform: none;

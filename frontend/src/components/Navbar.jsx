@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store'
-import { triggerScan } from '../scanPulse'
 import AccountMenu from './AccountMenu'
 import AuthModal from './AuthModal'
 
@@ -13,7 +12,7 @@ export default function Navbar() {
 
   const search = (e) => {
     e.preventDefault()
-    triggerScan() // 搜索 = 让机器去读知识库，唤起背景扫描
+    // 注意：搜索**不**触发背景扫描（按用户要求，只有上传文档时才扫）
     nav(q.trim() ? `/?q=${encodeURIComponent(q.trim())}` : '/')
   }
 
