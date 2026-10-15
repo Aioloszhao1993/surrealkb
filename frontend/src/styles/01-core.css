@@ -273,6 +273,9 @@
   --rgb-split: 1.4px;
   --rgb-split-hot: 4.5px;
   font-size: clamp(30px, 5vw, 52px); margin: 0 0 14px; line-height: 1.15; letter-spacing: -0.5px;
+  /* 窄屏下标题会折成两行，不干预的话会出现「…知识 / 库」这种只剩一个字的孤行。
+     balance 让两行长度接近（Chrome 114+/Safari 17.5+，老浏览器自动忽略）。 */
+  text-wrap: balance;
   /* 轻微色差（RGB 分离）：洋红偏左、青色偏右，赛博朋克标题最常见的处理，
      再叠一层原有的紫色辉光。偏移量刻意压在 1.4px，只做质感不糊字 */
   text-shadow:
@@ -286,6 +289,8 @@
    同样是「左右各一份偏移拷贝」，但保留渐变本身。 */
 .hero h1 .accent {
   text-shadow: none;
+  /* 渐变词组「会答话」不要被折行拆开（拆开后半截的渐变色会显得莫名其妙） */
+  white-space: nowrap;
   filter:
     drop-shadow(calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.45))
     drop-shadow(var(--rgb-split) 0 rgba(34, 211, 238, 0.45));

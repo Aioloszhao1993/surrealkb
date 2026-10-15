@@ -28,12 +28,18 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
    ============================================================ */
 @media (max-width: 820px) {
 
-  /* iOS Safari：输入框字号 <16px 会触发聚焦自动放大，这里统一提到 16px */
-  input[type='text'], input[type='email'], input[type='password'],
-  input[type='search'], input[type='tel'], input[type='url'],
-  input[type='number'], textarea, select {
-    font-size: 16px;
-  }
+  /* iOS Safari：输入框字号 <16px 会触发聚焦自动放大，这里统一提到 16px。
+     ⚠️ 两个坑，都踩过：
+     ① 不要用 input[type='text'] 这种属性选择器 —— 导航搜索框、AI 输入框、
+        登录/注册表单都没写 type 属性，会被漏掉，落到 Chrome 对表单控件的
+        默认字号 13.33px，聚焦照样放大。
+     ② 下面这几个具体选择器（.field / .ai-input / .tag-edit）特异性是 (0,1,1)，
+        高于裸 input 的 (0,0,1)，必须显式重新声明，否则盖不住。
+        （.upload-zone input[type='file'] 是隐藏的文件框，不触发缩放，不用管。） */
+  input, textarea, select,
+  .field input, .field textarea, .ai-input input, .tag-edit input { font-size: 16px; }
+  /* 但别把按钮型 input 也放大 */
+  input[type='button'], input[type='submit'], input[type='reset'], input[type='checkbox'], input[type='radio'] { font-size: inherit; }
 
   .container { width: 100%; padding: 18px 14px 56px; }
 
@@ -267,6 +273,23 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .btn:hover { transform: none; }
   .ai-source:hover { transform: none; }
   .feature-card:hover { transform: none; box-shadow: none; }
+  /* 头像按钮的 hover 放大在触屏上会「粘住」，去掉（展开态 .open 的放大保留） */
+  .account-trigger:hover { transform: none; }
+  .account-trigger:hover .avatar { transform: none; }
+
+  /* ---------- 触屏热区 ----------
+     实测 390px 下：头像按钮 30x30、弹窗关闭按钮 30x30、AI 面板「清空/收起」
+     高约 26px，都低于可点目标 44px 的通行建议。
+     用绝对定位的伪元素往外撑 7px，热区变成 44x44，
+     视觉尺寸和布局都不动（不用 padding 是怕把导航栏撑高）。 */
+  .account-trigger { position: relative; }
+  .account-trigger::after,
+  .modal-x::after {
+    content: ''; position: absolute; inset: -7px; border-radius: inherit;
+  }
+  /* AI 面板头部两个按钮离得近（gap 4px），撑伪元素会互相压，改成加内边距 */
+  .ai-head-actions { gap: 2px; }
+  .ai-head-actions button { padding: 12px 14px; }
 }
 
 /* ============================================================
@@ -313,7 +336,11 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .hero h1 { --rgb-split: 0.9px; --rgb-split-hot: 3px; }
 }
 
-/* 极窄屏：层级列表会挤到标题，直接隐去 */
+/* ≤560px：导航栏在这里换成「品牌+操作」一行 +「搜索」独占一行，
+   高度涨到约 104px，而 .bd-meta 定位在 top:76px —— 正好压在搜索框上
+   （实测 390px 下 meta 在 y=76~109，搜索行在 y≈57~104）。
+   手机上 HUD 只留四角括号，层级列表与时间码都隐去。 */
 @media (max-width: 560px) {
   .bd-layers { display: none; }
+  .bd-meta { display: none; }
 }
