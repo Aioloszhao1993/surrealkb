@@ -57,6 +57,7 @@ export default function App() {
       <footer className="footer">
         <span>SurrealKB · 知识库问答</span>
         <span className="faint">FastAPI × React × MySQL × 百炼</span>
+        <span className="faint build-stamp">构建 {__BUILD_STAMP__}</span>
       </footer>
     </div>
   )

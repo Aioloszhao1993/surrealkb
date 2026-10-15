@@ -238,8 +238,10 @@
 .page-title { font-size: 24px; margin: 8px 0 22px; }
 
 /* ---------- 页脚 ---------- */
-.footer { display: flex; justify-content: space-between; padding: 22px 28px; color: var(--faint); font-size: 12.5px;
+.footer { display: flex; justify-content: space-between; gap: 8px 18px; flex-wrap: wrap; padding: 22px 28px; color: var(--faint); font-size: 12.5px;
   border-top: 1px solid var(--panel-brd); background: rgba(5, 3, 15, 0.5); }
+/* 构建时间：用来一眼确认浏览器跑的是哪一版（排查缓存问题时用，可随时去掉） */
+.build-stamp { opacity: 0.6; }
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 720px) {
