@@ -279,6 +279,7 @@
     calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
     var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
     0 0 40px rgba(123, 92, 255, 0.35);
+  animation: heroRgb 13s ease-in-out infinite;
 }
 /* 渐变文字（background-clip:text + color:transparent）用不了 text-shadow ——
    阴影会把渐变色整片盖成纯色。改用 drop-shadow 作用于**已渲染的渐变**，
@@ -289,45 +290,29 @@
     drop-shadow(calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.45))
     drop-shadow(var(--rgb-split) 0 rgba(34, 211, 238, 0.45));
 }
-/* 抽搐只在扫描期间发生（根元素上的 .bd-scanning 由 Background 打上/撤下）。
-   平时标题只有上面那份静态色差，不会自己抽。 */
-html.bd-scanning .hero h1 { animation: heroRgbTear 1.1s linear 1 both; }
-/* 与扫描同一拍：开头猛撕一下、中段再轻轻扯一次，1.1s 内收干净 */
-@keyframes heroRgbTear {
-  0%, 4% {
+/* 标题自己的节奏：每 13s 极短暂地抽一下，强化"信号不稳"的错觉。
+   与背景的故障闪带**没有**关系 —— 闪带只在扫描时出现，标题是常驻氛围。 */
+@keyframes heroRgb {
+  0%, 91%, 95.5%, 100% {
     transform: none;
     text-shadow:
       calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
       var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
-  10% {
-    transform: translate(-1.5px, 0);
+  92.5% {
+    transform: translate(-1px, 0);
     text-shadow:
-      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.75),
-      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.75),
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.7),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.7),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
-  17% {
-    transform: translate(2px, 0.5px);
+  94% {
+    transform: translate(1.5px, 0.5px);
     /* 这一帧左右对调，做出"撕裂"的错觉 */
     text-shadow:
-      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.7),
-      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.7),
-      0 0 40px rgba(123, 92, 255, 0.35);
-  }
-  26%, 54% {
-    transform: none;
-    text-shadow:
-      calc(-1 * var(--rgb-split)) 0 rgba(255, 92, 200, 0.4),
-      var(--rgb-split) 0 rgba(34, 211, 238, 0.4),
-      0 0 40px rgba(123, 92, 255, 0.35);
-  }
-  60%, 100% {
-    transform: translate(0, 0);
-    text-shadow:
-      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.55),
-      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.55),
+      var(--rgb-split-hot) 0 rgba(34, 211, 238, 0.65),
+      calc(-1 * var(--rgb-split-hot)) 0 rgba(255, 92, 200, 0.65),
       0 0 40px rgba(123, 92, 255, 0.35);
   }
 }

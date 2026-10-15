@@ -134,6 +134,10 @@ export default function AiChat() {
   const ask = async (q) => {
     const text = (q || '').trim()
     if (!text || busy) return
+    // 提问 = 让机器去读知识库，唤起背景扫描。
+    // 注意放在登录判断**之前**：否则未登录时提问没有任何视觉反馈，
+    // 用户会以为「提问不触发扫描」是功能坏了。
+    triggerScan()
     if (!user) {
       setOpen(true)
       setMsgs((m) => [
@@ -145,7 +149,6 @@ export default function AiChat() {
     }
     setMsgs((m) => [...m, { role: 'user', content: text }, { role: 'assistant', content: '', streaming: true }])
     setBusy(true)
-    triggerScan() // 提问 = 正在检索知识库，唤起背景扫描
     const ctrl = new AbortController()
     abortRef.current = ctrl
     try {

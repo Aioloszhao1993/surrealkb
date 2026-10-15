@@ -281,8 +281,7 @@ button, a { touch-action: manipulation; }   /* 去掉 300ms 点击延迟 */
   .bd-dot,
   .orb,
   .grid-overlay,
-  .hero h1,
-  html.bd-scanning .hero h1 { animation: none; }
+  .hero h1 { animation: none; }
   .bd-sweep,
   .bd-sweep.run,
   .bd-glitch,
