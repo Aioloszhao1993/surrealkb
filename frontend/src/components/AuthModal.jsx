@@ -13,8 +13,8 @@ import portal from './Portal'
  * 设计说明：
  * - 单页展示：底部一行「还没有账号？免费注册」切换到注册；
  *   注册里包含原来的「免费创建知识库」（创建新知识库 / 用邀请码加入二选一）。
- * - 登录视图把**微信扫码登录放在最上面**作为首选方式：它没有密码可被撞库，
- *   比账号密码更安全，也少一步输入；账号密码退到「或使用账号密码」之下。
+ * - 登录视图以**账号密码表单为主**，微信扫码登录放在下方，用「或」分隔（视觉上更清爽；
+ *   早前试过把微信提到最上面做主按钮，观感不好，已回退）。
  * - 通过 portal 挂到 document.body，遮罩铺满整个视口，点空白处即关闭。
  *   （不能用 `return (<div className="modal-back">…)`：本弹窗会被渲染进带
  *   backdrop-filter 的容器里，那样遮罩只会铺满容器、点空白关不掉。）
@@ -104,18 +104,6 @@ export default function AuthModal({ onClose, onDone, initialMode = 'login' }) {
             <h2 className="wx-title">登录</h2>
             <p className="wx-sub">登录以管理知识库、上传文档与提问</p>
 
-            {wxEnabled && (
-              <>
-                <button className="btn wechat block" onClick={() => setShowWx(true)}>
-                  <span className="wx-logo">✆</span> 微信扫码登录
-                </button>
-                <p className="auth-hint">推荐：扫码即可，不用记密码</p>
-                <div className="divider">
-                  <span>或使用账号密码</span>
-                </div>
-              </>
-            )}
-
             <form onSubmit={submitLogin} className="form">
               <label className="field">
                 <span>用户名</span>
@@ -141,6 +129,17 @@ export default function AuthModal({ onClose, onDone, initialMode = 'login' }) {
                 {busy ? '登录中…' : '登录'}
               </button>
             </form>
+
+            {wxEnabled && (
+              <>
+                <div className="divider">
+                  <span>或</span>
+                </div>
+                <button className="btn wechat block" onClick={() => setShowWx(true)}>
+                  <span className="wx-logo">✆</span> 微信扫码登录
+                </button>
+              </>
+            )}
 
             <p className="auth-foot">
               还没有账号？
