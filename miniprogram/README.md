@@ -18,7 +18,7 @@
    ```
 3. 改本目录 `config.js` 里的 `API_BASE` 为你的后端地址（必须 https）
 4. 用[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)导入本目录
-   （`project.config.json` 里的 `appid` 换成你自己的；或导入时选「测试号」）
+   （`project.config.json` 里的 `appid` 已填为 `wx4a035f276ca9118b`）
 5. 上传 → 提交审核 → 发布（**必须发布**，`getwxacodeunlimit` 生成的码指向正式版）
 6. 小程序后台配好 **request 合法域名**（= 你的后端域名，要求已备案）
 
